@@ -1,0 +1,4 @@
+numpy
+pillow>=11
+opencv-python
+pynput

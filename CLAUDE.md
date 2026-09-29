@@ -1,0 +1,37 @@
+# GameToBlender: notes for Claude
+
+Pipeline: Ninja Ripper 2 frame rip of a DX11 game → `gtb/process.py` (parse .nr, solve camera, classify draws/textures) → `blender/gtb_scene.py` (Blender 5.2 scene) → tune `look.json` against the game screenshot. See README.md for user-facing usage.
+
+Tested end to end on **Frostpunk 1** with Ninja Ripper 2.18 and Blender 5.2 (2026-09-29). Sekiro has a starting profile but no real capture yet.
+
+## Working with the user
+- Judge results against the user's own screenshots and game references, not only the metrics. Users care about close-up shots, not just the game camera view, so always check `python gtb.py closeups <capture>` renders too.
+- Use stills **and** animation: snow/smoke are driven by the frame number (no baking).
+- Never write to a `scene.blend` the user has open. Ask first, or build to another name: `blender -b --factory-startup --python blender/build.py -- <capture> other.blend`.
+- Always run Blender with `--factory-startup`, because user add-ons can spawn processes and flood logs.
+- Blender 5.x API changed: compositor = `scene.compositing_node_group`; GN modifier inputs = `mod.properties.inputs.<Socket_N>.value`; sky types `SINGLE_SCATTERING`/`MULTIPLE_SCATTERING`; GN uses `FunctionNodeSeparateColor`. Probe with a tiny script before assuming.
+
+## Capturing (what went wrong the first time)
+- Steam games: **fully exit Steam** (tray → Exit), run `steam.exe` from Ninja Ripper, then start the game. If Steam was already running, the hook never reaches the game. Check: the game process must have `Ninja Ripper\\...\\intruder.dll` loaded.
+- Ninja Ripper makes one folder per hooked process (`<date>_<exe>_<pid>`) at process start; each rip lands in `frame_NNNN` inside it. The daemon watches for new `.nr` files, not new folders.
+- Rip = PrintScreen. Don't close the game until the daemon says `rip complete` (a Frostpunk frame is ~6,000 files / 5 GB).
+- Borderless windowed, overlays off, HUD hidden if possible. NR also saves its own `!screenshot.dds`, which is used as the reference.
+
+## Ninja Ripper 2.18 data (differs from older docs)
+- Each `.nr` holds 2 GEOMs (pre_vs + vs) with the same data, so we use the vs one.
+- Post-VS positions are **expanded** (one vertex per index); paired to pre-VS rows via the index buffer. This makes the FOV solve exact (Frostpunk: 55.00° vertical).
+- No render-state props. Shadow maps = orthographic (w ≡ 1). Deferred light volumes/decals sample **screen-sized** textures and become the 384 recovered game lights (480-tri spheres). `TEXTURE_SAVING_FAILED` refs = live render targets (e.g. the generator smoke column).
+- **Winding varies per shader.** Decide per mesh from the game's vertex normals (1,353 of 1,685 Frostpunk meshes needed flipping). A single global rule looked fine (custom normals hid it) but broke roof snow, backfaces and the cliffs.
+
+## Frostpunk specifics (encoded in profiles/frostpunk.json)
+- In-world UI (building icons): pre-VS layout `COLOR0,POSITION0,TEXCOORD0` → skip.
+- Particles: layout `POSITION0,COLOR0,TEXCOORD0,TEXCOORD1,COLOR1,NORMAL0` = smoke/steam flipbooks (RGB = normal map, A = shape) + fire flipbooks + snow specks. Rebuilt as camera-facing sprites; specks dropped (the procedural snowfall replaces them).
+- Materials: albedo alpha is a **mask, not opacity**; normals packed in A+G (R ≈ roughness); one engine-wide snow texture is bound to most shaders (auto-detected as "shared" and ignored). Meshes whose *only* texture is that one are snow drifts, which get a snow material. Terrain has no UVs and gets a flat colour. Shader families order slots differently, so there are no fixed slot numbers.
+- The game adds roof snow in-shader, so we use `add_surface_snow` (`materials.snow_cover` / `snow_threshold`).
+- Looks: `profiles/looks/frostpunk_night.json` (tuned to the capture screenshot, auto-exposure) and `frostpunk_day.json` (tuned by eye to an official day screenshot; `calibrate: false`). Apply with `python gtb.py look latest frostpunk_day`.
+
+## Tuning loop
+Edit `captures/<name>/look.json`, then `python gtb.py render <capture> --save` (writes comparison.png + metrics) and `python gtb.py closeups <capture>`. `calibrate` matches exposure to the screenshot (log-average luminance, secant steps, best-of). Only structural changes (winding, material wiring) need `process`/`build` again.
+
+## Checks
+`python tests/selftest.py` builds a synthetic rip and runs the whole pipeline (must print all PASS).

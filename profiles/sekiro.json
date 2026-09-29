@@ -1,0 +1,50 @@
+{
+  "_doc": "Sekiro (FromSoftware, DX11). Third-person camera, warm hazy sunlight, strong atmospheric perspective.",
+  "executables": [
+    "sekiro.exe"
+  ],
+  "fov_y_deg": 43.0,
+  "min_up_dot": 0.25,
+  "look": {
+    "view_transform": "AgX",
+    "look": "AgX - Medium High Contrast",
+    "sun": {
+      "azimuth": 200,
+      "elevation": 30,
+      "strength": 4.0,
+      "color": [
+        1.0,
+        0.9,
+        0.75
+      ],
+      "angle": 1.0
+    },
+    "sky": {
+      "type": "MULTIPLE_SCATTERING",
+      "strength": 0.4,
+      "aerosol_density": 3.0
+    },
+    "fog": {
+      "density": 0.003,
+      "color": [
+        0.95,
+        0.88,
+        0.75
+      ],
+      "strength": 1.2,
+      "start": 10.0,
+      "max_opacity": 0.9
+    },
+    "bloom": {
+      "strength": 0.3,
+      "threshold": 1.2,
+      "size": 0.6
+    },
+    "grade": {
+      "saturation": 0.95
+    },
+    "materials": {
+      "roughness": 0.7
+    }
+  }
+}

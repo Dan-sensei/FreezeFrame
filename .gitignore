@@ -1,0 +1,11 @@
+# Captures hold the game's ripped models/textures (GBs, and not ours to share)
+captures/
+# Per-machine settings (paths); regenerated on first run
+config.json
+# Python / Blender leftovers
+__pycache__/
+*.pyc
+*.blend1
+# Installers and archives (Ninja Ripper is paid; everyone needs their own copy)
+*.zip
+*.exe

@@ -1,0 +1,16 @@
+{
+  "_doc": "Fallbacks for any game. Game profiles override these keys. See README for every option.",
+  "executables": [],
+  "fov_y_deg": 60.0,
+  "min_up_dot": 0.25,
+  "flip_winding": "auto",
+  "uv_decode": "auto",
+  "normal_flip_green": true,
+  "gray_is_gloss": false,
+  "skip_color_write_disabled": true,
+  "skip_offsize_rt": true,
+  "min_rigid_draws": 3,
+  "slot_roles": {},
+  "packed_channels": {},
+  "look": {}
+}
