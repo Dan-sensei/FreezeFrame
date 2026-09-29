@@ -14,6 +14,9 @@ Keys under look["unreal"] only affect Unreal; Blender ignores them:
   cvars            console variables for Movie Render Queue renders, e.g. {"r.Lumen.ScreenProbeGather.DownsampleFactor": 8}
   smoke_loop_seconds   editor preview loop of the game's smoke puffs (0 = static)
   plume            smoke column: {enabled, speed (m/s), glow (furnace light), wind_drift}
+  cloth            banners flutter in the snow's wind: {ripple, sway (fractions of the cloth's
+                   length, at 2.5 m/s wind), wavelength (fraction of the length; below ~0.6
+                   the game's 9-row banners zigzag), speed (ripples per second)}
 """
 import math
 
@@ -29,7 +32,8 @@ UNREAL_DEFAULTS = {"exposure_offset": 0.0, "bloom_intensity": None, "bloom_thres
                    "smoke_loop_seconds": 6.0,
                    # Smoke columns (e.g. the generator's), built from the game's smoke flipbook.
                    # Height/grow/colour/density come from look.smoke like Blender's volumetric plume.
-                   "plume": {"enabled": True, "speed": 3.0, "glow": 1.5, "wind_drift": 0.35}}
+                   "plume": {"enabled": True, "speed": 3.0, "glow": 1.5, "wind_drift": 0.35},
+                   "cloth": {"ripple": 0.03, "sway": 0.08, "wavelength": 0.75, "speed": 0.5}}
 
 
 def lut_key(look):
@@ -67,7 +71,8 @@ def rl(v, nd=5):
 
 def ue_look(look, plan, lut_path):
     u = dict(UNREAL_DEFAULTS, **(look.get("unreal") or {}))
-    u["plume"] = dict(UNREAL_DEFAULTS["plume"], **((look.get("unreal") or {}).get("plume") or {}))
+    for k in ("plume", "cloth"):
+        u[k] = dict(UNREAL_DEFAULTS[k], **((look.get("unreal") or {}).get(k) or {}))
     s = look["sun"]
     az, el = math.radians(s["azimuth"]), math.radians(s["elevation"])
     to_sun = np.array([math.sin(az) * math.cos(el), math.cos(az) * math.cos(el), math.sin(el)])
@@ -127,12 +132,22 @@ def ue_look(look, plan, lut_path):
                       "SmokeColor": srgb_to_linear(parts["smoke_color"]) + [1.0]},
         "snow": _snow(snow, plan),
         "plume": _plume(look, u["plume"], plan),
+        "cloth": cloth_params(look),
         "render": {"preview_scale": r["preview_scale"], "resolution": plan["camera"]["resolution"],
                    "warmup_frames": u["warmup_frames"], "temporal_samples": u["temporal_samples"],
                    "anim_frames": u["anim_frames"], "fps": u["fps"], "cvars": u["cvars"]},
         "smoke_volumes": look["smoke"]["enabled"],
     }
     return out
+
+
+def cloth_params(look):
+    """M_GTB_Cloth's look parameters: look.unreal.cloth over UNREAL_DEFAULTS, and
+    the snow's wind (Blender m/s -> Unreal cm/s, y flipped)."""
+    c = dict(UNREAL_DEFAULTS["cloth"], **((look.get("unreal") or {}).get("cloth") or {}))
+    wind = look["snow"]["wind"]
+    return {"Ripple": c["ripple"], "Sway": c["sway"], "WaveLength": c["wavelength"], "FlutterSpeed": c["speed"],
+            "Wind": [wind[0] * CM, -wind[1] * CM, 0.0, 0.0]}
 
 
 def _extra_light(L):

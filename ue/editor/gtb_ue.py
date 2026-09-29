@@ -195,7 +195,7 @@ def build_materials(plan, cap, masters, textures):
     and the per-material instances as its children."""
     mdir = f"{cap}/Materials"
     look_mis = {}
-    for key in ("surface", "surface_masked", "snowdrift", "smoke", "fire", "plume", "snowfall", "sky", "tonemap"):
+    for key in ("surface", "surface_masked", "cloth", "snowdrift", "smoke", "fire", "plume", "snowfall", "sky", "tonemap"):
         name = {"snowfall": "MI_Snowfall", "sky": "MI_Sky", "tonemap": "MI_Tonemap"}.get(
             key, "MI_Look_" + "".join(w.title() for w in key.split("_")))
         look_mis[key] = material_instance(name, mdir, masters[key])
@@ -301,6 +301,10 @@ def build_level(plan, cap_name, meshes, mis, look_mis, snow_mesh, defaults):
         a = spawn(sm, act["name"], act["folder"], act["location"])
         c = a.static_mesh_component
         c.set_material(0, mis[act["material"]])
+        if act.get("cloth"):        # M_GTB_Cloth: front xy, bottom held, 0, 8 direction budgets (cm)
+            v = act["cloth"]
+            for i in range(0, 12, 4):
+                c.set_default_custom_primitive_data_vector4(i, unreal.Vector4(*v[i:i + 4]))
         if not act["cast_shadow"]:
             c.set_cast_shadow(False)
         if act["hidden"]:
@@ -354,8 +358,11 @@ def apply_look(look, plan, cap, look_mis, defaults):
 
     # Materials (GTB_Params in Blender).
     s = look["surface"]
-    for key in ("surface", "surface_masked"):
+    for key in ("surface", "surface_masked", "cloth"):
         set_params(look_mis[key], s, {"GroundColor": look["ground_color"]})
+    cl = look["cloth"]
+    set_params(look_mis["cloth"], {k: cl[k] for k in ("Ripple", "Sway", "WaveLength", "FlutterSpeed")},
+               {"Wind": cl["Wind"]})
     set_params(look_mis["snowdrift"], {"NormalStrength": look["normal_strength"]}, {"DriftColor": look["drift_color"]})
     p = look["particles"]
     common = {k: p[k] for k in ("Opacity", "Billboard", "Rise")}

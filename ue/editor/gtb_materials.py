@@ -167,6 +167,35 @@ def build_surface(mat, defaults, mpc, masked):
     g.out(c, "Emis", MP.MP_EMISSIVE_COLOR)
     if masked:
         g.out(c, "Alpha", MP.MP_OPACITY_MASK)
+    return g
+
+
+def build_cloth(mat, defaults, mpc):
+    """Masked surface that flutters in the wind (gtb_hlsl.CLOTH_WPO)."""
+    g = build_surface(mat, defaults, mpc, True)
+    # Also grows the primitive bounds, so moving cloth isn't culled early.
+    mat.set_editor_property("max_world_position_offset_displacement", 600.0)
+    # Pre-skinned bounds: ObjectLocalBounds are padded by the max WPO displacement
+    # below (PrimitiveSceneProxy::SetTransform), which moved the top 6 m up.
+    bounds = g.node(unreal.MaterialExpressionPreSkinnedLocalBounds)
+    wpo = g.custom(hlsl.CLOTH_WPO, {
+        "Local": g.node(unreal.MaterialExpressionLocalPosition),
+        "BMin": (bounds, "Min"), "BMax": (bounds, "Max"),
+        "ObjPos": g.node(unreal.MaterialExpressionObjectPositionWS),
+        "Normal": g.node(unreal.MaterialExpressionVertexNormalWS), "T": g.time(),
+        "Wind": g.vector("Wind", (250, -100, 0, 0), "Look"),
+        "Ripple": g.scalar("Ripple", 0.03, "Look"), "Sway": g.scalar("Sway", 0.08, "Look"),
+        "WaveLength": g.scalar("WaveLength", 0.75, "Look"), "Speed": g.scalar("FlutterSpeed", 0.5, "Look"),
+        # Per actor (custom primitive data 0-11, see ue/export.cloth_room); none = unlimited.
+        # "RGBA": a vector parameter's default output is RGB only.
+        "Room": (g.node(unreal.MaterialExpressionVectorParameter, parameter_name="ClothRoom",
+                        use_custom_primitive_data=True, primitive_data_index=0), "RGBA"),
+        "BudA": (g.node(unreal.MaterialExpressionVectorParameter, parameter_name="ClothBudgetA",
+                        use_custom_primitive_data=True, primitive_data_index=4), "RGBA"),
+        "BudB": (g.node(unreal.MaterialExpressionVectorParameter, parameter_name="ClothBudgetB",
+                        use_custom_primitive_data=True, primitive_data_index=8), "RGBA"),
+    }, F3, desc="GTB Cloth")
+    g.out(wpo, "", MP.MP_WORLD_POSITION_OFFSET)
 
 
 def build_snowdrift(mat, defaults, mpc):
@@ -325,6 +354,7 @@ def build_tonemap(mat, defaults, mpc):
 MASTERS = {
     "surface": ("M_GTB_Surface", lambda m, d, p: build_surface(m, d, p, False)),
     "surface_masked": ("M_GTB_SurfaceMasked", lambda m, d, p: build_surface(m, d, p, True)),
+    "cloth": ("M_GTB_Cloth", build_cloth),
     "snowdrift": ("M_GTB_SnowDrift", build_snowdrift),
     "smoke": ("M_GTB_Smoke", build_smoke),
     "fire": ("M_GTB_Fire", build_fire),

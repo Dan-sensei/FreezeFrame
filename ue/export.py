@@ -125,6 +125,88 @@ def _channel_targets(mapping, prefix, sc, vec):
             sc[f"{prefix}{MASK_NAMES[target]}Invert"] = 1.0 if invert else 0.0
 
 
+def cloth_rules(profile):
+    """profile["cloth"]; captures processed before the rule existed read it from
+    the current profile file."""
+    if "cloth" in profile:
+        return profile["cloth"]
+    f = ROOT / "profiles" / f"{profile.get('_name', 'default')}.json"
+    return json.loads(f.read_text(encoding="utf-8")).get("cloth") if f.exists() else None
+
+
+def is_cloth(m, pos_b, rules):
+    """Hanging cloth (see profiles/*.json "cloth"): pinned at the top, free below."""
+    if not rules or m.get("shaders") not in rules.get("shaders", []):
+        return False
+    if (m.get("rigid_fit") or 0.0) <= rules.get("min_rigid_fit", 1e-3):
+        return False
+    span = np.ptp(pos_b, axis=0)
+    return bool(span[2] >= rules.get("min_aspect", 2.0) * max(span[0], span[1]))
+
+
+def cloth_weight(z, held):
+    """Motion weight of gtb_hlsl.CLOTH_WPO over a banner's height (keep in sync):
+    d^2 from 0 at the pinned top (the upper part stays calm) to 1 at a free
+    bottom; a held bottom fades it out over the lowest 35%."""
+    d = np.clip((z.max() - z) / max(np.ptp(z), 1e-6), 0.0, 1.0)
+    return d * d * (np.clip((1.0 - d) / 0.35, 0.0, 1.0) if held else 1.0)
+
+
+def cloth_taper(x, half):
+    """Across-plane weight when the side edges are held (gtb_hlsl.CLOTH_WPO):
+    1 over the middle, 0 at the edges; x = offset from the centre line."""
+    return np.clip((1.0 - np.abs(x) / max(half, 1e-6)) / 0.4, 0.0, 1.0)
+
+
+def cloth_room(pos_b, tris, soup, reach=3.0, margin=0.1, tolerance=0.03):
+    """How far a banner may move before it meets other geometry (walls, beams, its
+    frame). Returns (front xy, budgets, bottom held, sides held), in Blender metres.
+    budgets[k] is the room per unit motion weight in direction k * 45 degrees
+    from front towards across = (-front.y, front.x), covering its whole sector:
+    the shader may move a vertex up to budget * weight that way. Held: the bottom
+    edge / side edges have geometry close on both sides (inside a beam, or between
+    a crossbar and the wall). A held bottom fades the motion out towards it;
+    held sides stop the sideways swing and fade the
+    motion across the plane to 0 at the edges (cloth_taper). A vertex may go
+    `tolerance` into geometry it already touches (near the mounting bracket), or
+    one such vertex with a tiny weight would freeze the whole banner."""
+    n = smooth_normals(pos_b, tris)[:, :2].mean(0)
+    n = n / (np.linalg.norm(n) + 1e-12)
+    ac = np.array([-n[1], n[0]])
+    near = soup.near(pos_b.min(0) - reach, pos_b.max(0) + reach)
+    z0, z1 = pos_b[:, 2].min(), pos_b[:, 2].max()
+    lo, hi = pos_b.min(0), pos_b.max(0)
+    # Across offset from the bounds centre, as the shader computes it.
+    x = (pos_b[:, :2] - (lo[:2] + hi[:2]) / 2) @ ac
+    half = 0.5 * float(np.abs(ac) @ (hi[:2] - lo[:2]))
+    # 32 horizontal directions, angle 0 = front, towards across.
+    ang = np.arange(32) * np.pi / 16
+    dirs = np.outer(np.cos(ang), n) + np.outer(np.sin(ang), ac)
+    front_back = dirs[[0, 16]]
+    middle = np.abs(x) <= 0.6 * half          # the two inner columns (at +-1/3 of the width)
+    edges = np.abs(x) >= 0.9 * half
+    bottom = pos_b[(pos_b[:, 2] <= z0 + 0.1 * (z1 - z0)) & middle]
+    side = pos_b[edges & (pos_b[:, 2] <= z1 - 0.25 * (z1 - z0)) & (pos_b[:, 2] >= z0 + 0.1 * (z1 - z0))]
+    # Held = geometry within 15 cm on both sides (inside a beam, or between a
+    # crossbar and the wall); a wall on one side only leaves it free.
+    held = bool(len(bottom)) and cast_level(near, bottom, front_back).min(0).max() < 0.15
+    sides = bool(len(side)) and cast_level(near, side, front_back).min(0).max() < 0.15
+    w = cloth_weight(pos_b[:, 2], held)
+    if sides:
+        w = w * cloth_taper(x, half)       # the motion is along +-front only
+    mv = w > 0.02
+    free = (np.maximum(np.minimum(cast_level(near, pos_b[mv], dirs, corners=True), reach) - margin, 0.0)
+            + tolerance) / w[mv, None]
+    budgets = []
+    for k in range(8):
+        # The whole sector to both neighbouring directions (the shader
+        # interpolates), so obstacles between sample directions still count.
+        sector = [(4 * k + j) % 32 for j in range(-4, 5)]
+        b = free[:, sector].min() if mv.any() else reach
+        budgets.append(float(min(b, reach / 0.02)))
+    return n, budgets, held, sides
+
+
 def surface_material(slots, profile, has_uv):
     """Unreal version of blender/gtb_scene.build_material, as parameter values
     for the M_GTB_Surface master (ue/editor/gtb_hlsl.SURFACE)."""
@@ -206,6 +288,112 @@ def ray_hit(origin, direction, meshes):
         if hit.any():
             best = min(best, float(t[hit].min()))
     return best
+
+
+class TriSoup:
+    """All triangles of a mesh list in flat arrays, for fast batched ray casts."""
+    def __init__(self, meshes):
+        tri = [pos[t] for pos, t in meshes if len(t)] or [np.zeros((0, 3, 3))]
+        self.tri = np.concatenate(tri)                     # (T, 3 corners, xyz)
+        self.lo, self.hi = self.tri.min(1), self.tri.max(1)
+
+    def near(self, lo, hi):
+        """Triangles whose bounds overlap the box lo..hi."""
+        keep = (self.hi >= lo).all(1) & (self.lo <= hi).all(1)
+        sub = TriSoup.__new__(TriSoup)
+        sub.tri, sub.lo, sub.hi = self.tri[keep], self.lo[keep], self.hi[keep]
+        return sub
+
+    def cast(self, origins, dirs, chunk=4_000_000):
+        """Nearest hit distance of each ray (inf = none), Moller-Trumbore on
+        rays x triangles in chunks."""
+        origins, dirs = np.atleast_2d(origins), np.atleast_2d(dirs)
+        dirs = np.broadcast_to(dirs, origins.shape)
+        out = np.full(len(origins), np.inf)
+        if not len(self.tri):
+            return out
+        a = self.tri[:, 0]
+        e1, e2 = self.tri[:, 1] - a, self.tri[:, 2] - a
+        step = max(1, chunk // len(a))
+        for i in range(0, len(origins), step):
+            o, d = origins[i:i + step, None, :], dirs[i:i + step, None, :]
+            pv = np.cross(d, e2)
+            det = (e1 * pv).sum(-1)
+            ok = np.abs(det) > 1e-12
+            inv = np.where(ok, 1.0 / np.where(ok, det, 1.0), 0.0)
+            tv = o - a
+            u = (tv * pv).sum(-1) * inv
+            qv = np.cross(tv, e1)
+            v = (qv * d).sum(-1) * inv
+            t = (e2 * qv).sum(-1) * inv
+            hit = ok & (u >= 0) & (v >= 0) & (u + v <= 1) & (t > 1e-4)
+            out[i:i + step] = np.where(hit, t, np.inf).min(1)
+        return out
+
+
+    def slice(self, z):
+        """Cross-section at height z: 2D segments (S, 2 ends, xy) where triangles cut it."""
+        tri = self.tri[(self.lo[:, 2] <= z) & (self.hi[:, 2] >= z)]
+        pts = []
+        for i, j in ((0, 1), (1, 2), (2, 0)):
+            a, b = tri[:, i], tri[:, j]
+            da, db = a[:, 2] - z, b[:, 2] - z
+            cut = (da * db < 0) | ((da == 0) & (db != 0))
+            f = np.where(cut, da / np.where(da != db, da - db, 1.0), 0.0)
+            pts.append((np.where(cut[:, None], a[:, :2] + f[:, None] * (b[:, :2] - a[:, :2]), np.nan), cut))
+        (p0, c0), (p1, c1), (p2, c2) = pts
+        first = np.where(c0[:, None], p0, p1)
+        second = np.where((c0 & c1)[:, None], p1, p2)
+        ok = (c0.astype(int) + c1 + c2) >= 2
+        return np.stack([first[ok], second[ok]], 1)
+
+
+def cast2d(origins, dirs, segs):
+    """Nearest hit distance of 2D rays against segments (inf = none)."""
+    out = np.full(len(origins), np.inf)
+    if not len(segs) or not len(origins):
+        return out
+    p, e = segs[:, 0], segs[:, 1] - segs[:, 0]
+    step = max(1, 2_000_000 // len(p))
+    for i in range(0, len(origins), step):
+        o, d = origins[i:i + step, None, :], dirs[i:i + step, None, :]
+        den = d[..., 0] * e[:, 1] - d[..., 1] * e[:, 0]
+        ok = np.abs(den) > 1e-12
+        inv = np.where(ok, 1.0 / np.where(ok, den, 1.0), 0.0)
+        po = p - o
+        t = (po[..., 0] * e[:, 1] - po[..., 1] * e[:, 0]) * inv
+        u = (po[..., 0] * d[..., 1] - po[..., 1] * d[..., 0]) * inv
+        hit = ok & (t > 1e-4) & (u >= 0) & (u <= 1)
+        out[i:i + step] = np.where(hit, t, np.inf).min(1)
+    return out
+
+
+def cast_level(soup, pts, dirs, corners=False):
+    """Horizontal rays: for each start point, the nearest hit along each 2D
+    direction (P x D), slicing the geometry once per distinct height.
+    corners: dirs are evenly spaced around the circle; each direction's result
+    becomes the nearest geometry anywhere within half a step of it, not just on
+    the ray. The slice's segment ends within that angle count too, so thin
+    things (poles, ropes) between two rays are not missed: mesh_1049's edge went
+    6 cm into a pole that sat between its 11.25-degree rays."""
+    out = np.full((len(pts), len(dirs)), np.inf)
+    base = np.arctan2(dirs[0, 1], dirs[0, 0])
+    turn = np.sign(dirs[0, 0] * dirs[1, 1] - dirs[0, 1] * dirs[1, 0]) if len(dirs) > 1 else 1.0
+    for z in np.unique(np.round(pts[:, 2], 3)):
+        rows = np.where(np.round(pts[:, 2], 3) == z)[0]
+        segs = soup.slice(z)
+        o = np.repeat(pts[rows, :2], len(dirs), 0)
+        d = np.tile(dirs, (len(rows), 1))
+        out[rows] = cast2d(o, d, segs).reshape(len(rows), len(dirs))
+        if corners and len(segs):
+            ends = segs.reshape(-1, 2)
+            for r in rows:
+                v = ends - pts[r, :2]
+                dist = np.hypot(v[:, 0], v[:, 1])
+                ang = (turn * (np.arctan2(v[:, 1], v[:, 0]) - base)) % (2 * np.pi)
+                k = np.rint(ang / (2 * np.pi) * len(dirs)).astype(int) % len(dirs)
+                np.minimum.at(out[r], k, dist)
+    return out
 
 
 def closeup_views(cam_m, surfaces):
@@ -296,6 +484,7 @@ def export(capture: Path):
     capture = Path(capture)
     manifest = json.loads((capture / "manifest.json").read_text(encoding="utf-8"))
     profile = manifest.get("profile", {})
+    cloth = cloth_rules(profile)
     textures = manifest["textures"]
     out = capture / "unreal"
     mesh_dir = out / "meshes"
@@ -306,8 +495,9 @@ def export(capture: Path):
     chunks = ChunkedGlb(mesh_dir, "geo")
     materials, used_textures, actors = {}, {}, []
     surfaces_for_ray = []
+    solids, cloth_actors = [], []       # cloth: how far each banner may move (see cloth_room)
     sprite_frames_by_atlas = {}
-    counts = {"surface": 0, "effect": 0, "sprite": 0, "snowdrift": 0}
+    counts = {"surface": 0, "cloth": 0, "effect": 0, "sprite": 0, "snowdrift": 0}
 
     def use_tex(spec):
         prev = used_textures.get(spec["file"])
@@ -379,13 +569,18 @@ def export(capture: Path):
                 actor["folder"] = "Geometry"
                 counts["snowdrift"] += 1
                 surfaces_for_ray.append((pos_b, tris))
+                solids.append((pos_b, tris))
             else:
                 slots = assign_slots(m.get("textures", {}), textures, profile)
                 has_uv = "uv0" in data
                 key = m.get("material_key") or json.dumps(
                     {r: e["file"] for r, e in sorted(slots.items())}, sort_keys=True) + ("" if has_uv else "|nouv")
+                flutter = is_cloth(m, pos_b, cloth)
+                key += "|cloth" if flutter else ""
                 if key not in materials:
                     mat = surface_material(slots, profile, has_uv)
+                    if flutter:
+                        mat["parent"] = "cloth"
                     mat["name"] = f"MI_M{len(materials):03d}"
                     for spec in mat["textures"].values():
                         use_tex(spec)
@@ -396,7 +591,12 @@ def export(capture: Path):
                 if is_surface:
                     actor["folder"] = "Geometry"
                     counts["surface"] += 1
+                    counts["cloth"] += flutter
                     surfaces_for_ray.append((pos_b, tris))
+                    if flutter:     # banners come as front/back twins that move together
+                        cloth_actors.append((actor, pos_b, tris))
+                    else:
+                        solids.append((pos_b, tris))
                 else:
                     actor.update(folder="Effects (hidden)", hidden=True)
                     counts["effect"] += 1
@@ -406,6 +606,19 @@ def export(capture: Path):
         actors.append(actor)
     chunks.flush()
     write_snowfall(out / "SM_Snowfall.glb")
+    # Custom primitive data 0-11 of M_GTB_Cloth: front (Unreal xy), bottom held, sides held,
+    # then the 8 direction budgets (cm per unit motion weight, see cloth_room).
+    # Banners hung on walls and in frames must not flutter into them.
+    soup = TriSoup(solids)
+    for actor, pos_b, tris in cloth_actors:
+        n, budgets, held, sides = cloth_room(pos_b, tris, soup)
+        nu = dir_to_ue([n[0], n[1], 0.0])
+        # Unreal's y flip mirrors the across axis, so direction k becomes -k.
+        budgets = [budgets[-k % 8] for k in range(8)]
+        if nu[0] < 0 or (nu[0] == 0 and nu[1] < 0):      # one front direction for twins
+            nu, budgets = -nu, [budgets[(k + 4) % 8] for k in range(8)]
+        actor["cloth"] = ([round(float(nu[0]), 4), round(float(nu[1]), 4), 1.0 if held else 0.0, 1.0 if sides else 0.0]
+                          + [round(min(b * CM, 10000.0), 1) for b in budgets])
 
     # Smoke columns (the generator's is drawn from a live render target the ripper
     # can't save): rebuilt from the game's own smoke flipbook, the sheet with the

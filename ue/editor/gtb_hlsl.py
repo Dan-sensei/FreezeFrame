@@ -262,6 +262,86 @@ float3 centre = Base + float3(P2.xy * r * 0.45 + Drift.xy * h, h);
 return centre + c.x * CamR + c.y * CamU - WorldPos;
 """
 
+# Hanging cloth (banners): pinned along the top of the object's bounds, free at
+# the bottom. Ripples travel down the cloth across its plane (vertex normal), and
+# the whole strip swings downwind with slow gusts. Ripple and Sway are fractions
+# of the cloth's length; the phase is per object so neighbours move out of step.
+# Room (custom primitive data 0-11, from ue/export.cloth_room): the banner's front
+# direction (Room.xy), Room.z = 1 when the bottom edge is held too (inside a
+# beam: the motion fades out towards it), Room.w = 1 when the side
+# edges are held (no sideways swing; the motion across the plane fades to 0 at
+# the edges, see export.cloth_taper), and BudA/BudB = 8 budgets,
+# cm per unit motion weight w, for directions k * 45 degrees from front towards
+# across = (-front.y, front.x), each covering its whole 45-degree sector.
+# Every motion term is (constant per banner) x w x gust, so the motion is fitted
+# to the budgets once per banner, at the strongest gust: the ripple across the
+# plane shrinks (and billows to the free side when a wall is close), the wind
+# swing is limited per side, and a last uniform scale keeps the extremes inside
+# the diagonal budgets. Clamping each vertex per frame instead made them snap.
+# Twins (front/back meshes, opposite vertex normals) share the front direction.
+# Mirrored in ue/cloth_check.cloth_offsets; keep w in sync with export.cloth_weight.
+# Unreal has no Blender counterpart yet (look.unreal.cloth).
+CLOTH_WPO = r"""
+float len = max(BMax.z - BMin.z, 1.0);
+float halfw = 0.5 * length(BMax.xy - BMin.xy);
+float sides = Room.w;
+float d = saturate((BMax.z - Local.z) / len);
+float held = Room.z;
+float w = d * d * lerp(1.0, saturate((1.0 - d) / 0.35), held);
+float phase = frac(sin(dot(ObjPos.xy, float2(12.9898, 78.233))) * 43758.5453) * 6.2831853;
+float ws = length(Wind.xy);
+float2 wd = ws > 1e-3 ? Wind.xy / ws : float2(1.0, 0.0);
+float smax = min(ws / 250.0, 1.5);
+float gust = 0.7 + 0.3 * sin(T * 0.45 + phase) * sin(T * 0.23 + phase * 1.3);
+float2 n = normalize(Normal.xy + 1e-4);
+bool hasRoom = dot(Room.xy, Room.xy) > 0.25;
+if (hasRoom)
+    n = Room.xy;
+else if (n.x < 0.0 || (n.x == 0.0 && n.y < 0.0))
+    n = -n;
+float2 across = float2(-n.y, n.x);
+float halfA = 0.5 * dot(abs(across), BMax.xy - BMin.xy);
+float xa = dot(Local.xy - 0.5 * (BMin.xy + BMax.xy), across);
+float wn = w * lerp(1.0, saturate((1.0 - abs(xa) / max(halfA, 1e-3)) / 0.4), sides);
+float bud[8] = {BudA.x, BudA.y, BudA.z, BudA.w, BudB.x, BudB.y, BudB.z, BudB.w};
+if (!hasRoom)
+    for (int i = 0; i < 8; i++) bud[i] = 1e6;
+// WaveLength is a fraction of the cloth's length: the game's banners are all the
+// same 4x9 grid, so a fixed wavelength aliased into zigzags on the long ones.
+float sp = d * 6.2831853 / max(WaveLength, 0.3);
+float wt = T * Speed * 6.2831853;
+float travel = sp - wt + phase;
+float ripple = sin(travel) + 0.35 * sin(0.6 * sp - 1.7 * wt + phase * 2.1);
+// Twist: the side edges turn about the centre line together (same timing across
+// the width; a phase that varied across it made the edges fight each other).
+float twist = 0.12 * dot(Local.xy, across) * sin(0.7 * travel + 1.3);
+// Fit at the strongest gust (per unit w): ripple amplitude a around centre C
+// across the plane, swing SA along the wall.
+float A = Ripple * len * 1.35 + 0.12 * halfw;
+float rn = (Ripple * len * ripple + twist) / max(A, 1e-3);    // -1..1
+float a = min(A * smax, 0.5 * (bud[0] + bud[4]));
+// No swing when the bottom is held too: a banner fixed at both ends can't lean
+// with the wind, and the swing only bowed its middle.
+float swing = Sway * len * smax * (1.0 - held);
+float C = clamp(swing * dot(wd, n), a - bud[4], bud[0] - a);
+float SA = clamp(swing * dot(wd, across), -bud[6], bud[2]) * (1.0 - sides);
+float f = 1.0;
+for (int j = -1; j <= 1; j++)
+{
+    float2 v = float2(C + j * a, SA);
+    float r = length(v);
+    if (r > 1e-3)
+    {
+        float k = frac(atan2(v.y, v.x) / 6.2831853) * 8.0;
+        int k0 = (int)floor(k) % 8;
+        f = min(f, lerp(bud[k0], bud[(k0 + 1) % 8], k - floor(k)) / r);
+    }
+}
+float3 off = float3((n * (C + a * rn) * wn + across * SA * w) * f * gust, 0.0);
+off.z = dot(off.xy, off.xy) / (2.0 * max(d * len, 1.0)) * (1.0 - held);
+return off;
+"""
+
 PLUME = r"""
 float4 a = Texture2DSample(Atlas, AtlasSampler, UV);
 float u = frac(T / Period + P1.x);

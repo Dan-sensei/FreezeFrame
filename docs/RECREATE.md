@@ -86,7 +86,7 @@ python gtb.py unreal Frostpunk_20260929_115750
 
 The first ever run also compiles shaders and textures, which takes a few minutes more. Expected output:
 
-- `plan: {'surface': 1444, 'effect': 573, 'sprite': 44, 'snowdrift': 241}, 112 materials, ... 384 game lights`
+- `plan: {'surface': 1444, 'cloth': 44, 'effect': 573, 'sprite': 44, 'snowdrift': 241}, 112 materials, ... 384 game lights`. `cloth` counts the red banners that flutter (they are also counted in `surface`). The export ray-casts each banner's clearance to the walls and frames around it, in a few seconds. `python -m ue.cloth_check Frostpunk_20260929_115750` must then print `0 banner(s) clip, 0 jerky, 4 barely move`.
 - The build takes about 60 s, with `smoke columns: 1` and `done (0 warnings)`.
 - `4 frame(s)` rendered by Movie Render Queue in about 25 s.
 - Night look: about 0.1 stops from the screenshot and from Blender's game view. Edge alignment against Blender is only 0.6–0.75, because the dense night snowfall uses different random flakes in each engine.
@@ -127,6 +127,12 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 - **Lights:** street lamps and building lights glow warm (384 game lights). The generator glows.
 - **Smoke:** chimney smoke sprites sit at the chimneys. The generator has a tall dark smoke column (Unreal only, `SmokeColumn00`). Blender's volumetric version (`smoke.enabled`) is off in both presets. Smoke puffs rise and fade in a loop in the Unreal editor.
 - **Snowfall:** flakes fall around the camera in stills and in the animation.
+- **Banners (Unreal only):** the 44 red banners (`MI_M002` → `MI_Look_Cloth`) flutter in the snow's wind. Their top part stays still.
+  - Free-hanging banners (like `mesh_1004`) swing downwind with a ripple running down them.
+  - The 30 whose bottom runs through their stand's bottom block only ripple, fading out before the bottom, with no bow in the middle.
+  - None passes through a wall, beam or pole, and none snaps.
+  - A zigzag along a long banner means `look.unreal.cloth.wavelength` is too short (keep it at 0.6 or more).
+  - With the editor open, `python -m ue.live cloth Frostpunk_20260929_115750` re-applies them.
 - **Close-ups:** these are dollied from the game camera. Unreal's close-ups are a little darker than Blender's (up to about 0.4 stops) because Lumen occludes sky light, which EEVEE doesn't. That is expected.
 
 ## 7. Where things are
@@ -140,6 +146,9 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 | `ue/blender_lut.py` | Blender bakes its own grade and AgX into the LUT that Unreal applies |
 | `ue/editor/` | Runs inside Unreal: master materials (`gtb_hlsl.py`, `gtb_materials.py`) and the level build (`gtb_ue.py`) |
 | `ue/pipeline.py` | Runs Unreal headless (commandlet, then Movie Render Queue) and writes the comparison sheets |
+| `ue/cloth_check.py` | Replays the banner flutter in numpy and reports banners that move into geometry |
+| `ue/live.py` | Pushes the banners or all material instances into the open editor (`cloth` / `materials`) |
+| `ue/remote.py` | Runs a Python file inside an open Unreal editor, for live tweaks (needs Python Remote Execution turned on) |
 | `profiles/frostpunk.json`, `profiles/looks/` | Game profile, night and day looks |
 
 ## 8. If something differs
