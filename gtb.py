@@ -10,6 +10,12 @@
   python gtb.py open <capture>        open scene.blend in Blender
   python gtb.py all <capture>         process + build + calibrate
 
+  python gtb.py unreal <capture>           build an Unreal level (UE 5.x) and render/compare it
+  python gtb.py unreal-look <capture>      re-apply look.json to the Unreal level, render, compare
+  python gtb.py unreal-render <capture>    render stills (--anim: the Level Sequence)
+  python gtb.py unreal-calibrate <capture> match Unreal's exposure to the screenshot
+  python gtb.py unreal-open <capture>      open the level in the Unreal editor
+
 <capture> may be a folder name under captures/ or "latest".
 """
 import argparse
@@ -158,10 +164,14 @@ def on_capture(cfg):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["watch", "process", "build", "render", "calibrate", "closeups", "look", "open", "all"])
+    ap.add_argument("command", choices=["watch", "process", "build", "render", "calibrate", "closeups", "look", "open",
+                                        "all", "unreal", "unreal-look", "unreal-render", "unreal-calibrate",
+                                        "unreal-open"])
     ap.add_argument("capture", nargs="?", default="latest")
     ap.add_argument("preset", nargs="?", help="look: preset name from profiles/looks/")
     ap.add_argument("--save", action="store_true", help="render: also save look into scene.blend")
+    ap.add_argument("--anim", action="store_true", help="unreal-render: render the animation sequence")
+    ap.add_argument("--no-render", action="store_true", help="unreal / unreal-look: skip rendering")
     a = ap.parse_args()
     cfg = config.load()
 
@@ -188,6 +198,18 @@ def main():
         cmd_process(cfg, cap)
         cmd_build(cfg, cap)
         cmd_calibrate(cfg, cap)
+    elif a.command.startswith("unreal"):
+        from ue import pipeline
+        if a.command == "unreal":
+            pipeline.cmd_unreal(cfg, cap, do_render=not a.no_render)
+        elif a.command == "unreal-look":
+            pipeline.cmd_look(cfg, cap, do_render=not a.no_render)
+        elif a.command == "unreal-render":
+            pipeline.cmd_render(cfg, cap, anim=a.anim)
+        elif a.command == "unreal-calibrate":
+            pipeline.cmd_calibrate(cfg, cap)
+        elif a.command == "unreal-open":
+            pipeline.cmd_open(cfg, cap)
 
 
 if __name__ == "__main__":

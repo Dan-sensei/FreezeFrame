@@ -32,7 +32,7 @@ def _edges(img):
     return cv2.Canny(g, 60, 150) > 0
 
 
-def compare(screenshot: Path, render: Path, out_png: Path, grid=3, ignore_mask=None):
+def compare(screenshot: Path, render: Path, out_png: Path, grid=3, ignore_mask=None, label="BLENDER"):
     ren = _read(render)
     h, w = ren.shape[:2]
     ref = _read(screenshot, (w, h))
@@ -87,7 +87,7 @@ def compare(screenshot: Path, render: Path, out_png: Path, grid=3, ignore_mask=N
     top = np.concatenate([ref, ren], 1)
     bottom = np.concatenate([overlay, heat], 1)
     sheet = np.concatenate([top, bottom], 0)
-    labels = ["GAME", "BLENDER", "EDGES red=blender cyan=game", "LUM DIFF red=too bright blue=too dark"]
+    labels = ["GAME", label, f"EDGES red={label.lower()} cyan=game", "LUM DIFF red=too bright blue=too dark"]
     img = (np.clip(sheet, 0, 1) * 255).astype(np.uint8)[..., ::-1].copy()
     for i, t in enumerate(labels):
         cv2.putText(img, t, ((i % 2) * w + 10, (i // 2) * h + 28), cv2.FONT_HERSHEY_SIMPLEX,

@@ -9,3 +9,6 @@ __pycache__/
 # Installers and archives (Ninja Ripper is paid; everyone needs their own copy)
 *.zip
 *.exe
+
+# Generated Unreal project (content imported from captures)
+unreal_project/

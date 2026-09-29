@@ -30,6 +30,33 @@ checks = {
     "6 meshes kept": stats["kept"] == 6,
     "scene.blend written": (OUT / "capture" / "scene.blend").exists(),
 }
+
+# Unreal export (no Unreal needed): plan, glb geometry and the Blender-baked colour LUT.
+sys.path.insert(0, str(ROOT))
+import numpy as np  # noqa: E402
+from gtb import config  # noqa: E402
+from gtb.scene_common import load_look  # noqa: E402
+from ue import export, pipeline  # noqa: E402
+
+cap = OUT / "capture"
+plan = export.export(cap)
+glb = next(iter(plan["glb_meshes"]))
+data = (cap / "unreal" / "meshes" / glb).read_bytes()
+first = next(a for a in plan["actors"])
+M = np.array(cam["matrix_world"])
+fwd = export.dir_to_ue(-M[:3, 2] / np.linalg.norm(M[:3, 2]))
+lut = pipeline.bake_lut(config.load(), cap, load_look(cap / "look.json"))
+import cv2  # noqa: E402
+L = cv2.imread(str(lut), cv2.IMREAD_UNCHANGED)
+n = L.shape[0]
+grey = [L[i, i * n + i, 1] for i in range(n)]   # r = g = b along the diagonal
+checks.update({
+    "unreal plan: 6 actors": len(plan["actors"]) == 6,
+    "unreal plan: fov 45": abs(plan["camera"]["fov_y_deg"] - 45.0) < 0.05,
+    "unreal plan: camera forward (x, -y, z)": np.allclose(plan["camera"]["forward"], fwd, atol=1e-4),
+    "unreal glb valid": data[:4] == b"glTF" and len(plan["glb_meshes"][glb]) == 6,
+    "unreal LUT 64^3, grey ramp rises": L.shape[:2] == (64, 64 * 64) and all(np.diff(grey) >= 0) and grey[-1] > grey[0],
+})
 for k, ok in checks.items():
     print(f"  {'PASS' if ok else 'FAIL'}  {k}")
 print(f"comparison sheet: {OUT / 'capture' / 'comparison.png'}")
