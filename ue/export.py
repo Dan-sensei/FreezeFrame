@@ -449,6 +449,9 @@ def write_snowfall(path: Path, count=SNOW_MAX_FLAKES, seed=1):
     w.save(path)
 
 
+MIST_CARD_M = 40.0      # smoke sprite cards at least this wide (m) are ground mist
+
+
 def write_plume(path: Path, frames, count=320, seed=7):
     """Puff quads for a rising smoke column (M_GTB_Plume places them from time).
       UV0 flipbook frame (glTF/Unreal v)   UV1 (phase 0..1, spin angle)
@@ -526,13 +529,18 @@ def export(capture: Path):
 
         if m.get("category") == "sprite" and m.get("sprite"):
             sp = m["sprite"]
-            key = f"sprite|{sp['kind']}|{sp['atlas']}"
+            # The game's ground mist is smoke sprites on huge cards (Frostpunk: 322 soft
+            # blobs, 75-80 m wide; the biggest puffs are ~23 m). It gets its own look
+            # (MI_Look_Mist): more opacity, a long soft fade into geometry, a near fade.
+            kind = sp["kind"]
+            if kind == "smoke" and "attr_p_corner" in data and                     2.0 * float(np.median(np.abs(data["attr_p_corner"]).max(1))) >= MIST_CARD_M:
+                kind = "mist"
+            key = f"sprite|{kind}|{sp['atlas']}"
             if key not in materials:
                 entry = textures[sp["atlas"]]
-                spec = texture_spec(entry, "albedo" if sp["kind"] == "fire" else "linear")
+                spec = texture_spec(entry, "albedo" if kind == "fire" else "linear")
                 use_tex(spec)
-                materials[key] = {"name": f"MI_Sprite_{sp['kind']}_{sp['atlas']}",
-                                  "parent": "fire" if sp["kind"] == "fire" else "smoke",
+                materials[key] = {"name": f"MI_Sprite_{kind}_{sp['atlas']}", "parent": kind,
                                   "textures": {"Atlas": spec}, "scalars": {}, "vectors": {}}
             # Billboard data (Unreal world cm): offset to the puff centre, corner
             # offsets along the game camera's right/up, texture axes.
@@ -544,7 +552,7 @@ def export(capture: Path):
             phase = np.random.default_rng(i).random(puff_id.max() + 1)[puff_id]
             uv_list += [d[:, :2], np.stack([d[:, 2], np.zeros(len(d))], 1), corner, tan, bit,
                         np.stack([phase, np.zeros(len(d))], 1)]
-            if sp["kind"] == "smoke":
+            if kind == "smoke":
                 for k in np.unique(puff_id):
                     uv = data["uv0"][puff_id == k]
                     sprite_frames_by_atlas.setdefault(sp["atlas"], set()).add(

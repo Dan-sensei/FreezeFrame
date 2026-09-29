@@ -227,6 +227,15 @@ if (LoopSeconds > 0.0 && W > 0.5)
 
 # build_sprite_material (smoke): flipbook alpha x vertex alpha x opacity; the
 # sheet's RGB is a tangent-space normal along the sprite's texture axes.
+# Soft particles for the smoke sprites: a card fades out within SoftFade (cm) of the
+# geometry behind it, so the game's 60 m mist cards don't cut hard lines through
+# buildings and the ground, and within NearFade of the camera, so flying through the
+# mist doesn't fill the screen.
+SOFT_FADE = r"""
+float soft = saturate((SceneZ - PixelZ) / max(SoftFade, 1.0));
+float nearf = saturate(PixelZ / max(NearFade, 1.0));
+return Alpha * soft * nearf;
+"""
 SMOKE = LOOP_FADE + r"""
 float4 a = Texture2DSample(Atlas, AtlasSampler, UV);
 Alpha = min(a.a * VColorA * Opacity * fade, 1.0);

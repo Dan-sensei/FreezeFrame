@@ -68,6 +68,11 @@ Tested with UE 5.8.3 on the same Frostpunk capture (2026-09-29): the game view i
   - Git Bash rewrites `/Game/...` arguments; the pipeline calls Unreal from Python, so it isn't affected.
 - Time: effects use `MPC_GTB_Time`. `SceneTime` is keyed by the sequences. `EngineTimeWeight` is 1 outside Sequencer, so the editor viewport animates. Anything that accumulates, like smoke rise, must use `SceneTime` only: the editor clock grows without limit, and sprites once ended up hundreds of metres up in the sky. Snowfall wraps, so engine time is safe for it.
 - The user wants effects to animate in the editor viewport, not sit static. The capture's puffs loop (rise and fade) while `EngineTimeWeight` is 1, using a per-puff phase in UV6.
+- Ground mist: the game draws it with huge soft smoke-sprite cards. On the Frostpunk capture that's 8 meshes, 322 cards of 75–80 m (`t0114`, a flat grey texture with a radial alpha blob peaking at 0.5; its vertex alpha is ≈0.5).
+  - `ue/export.py` marks smoke sprites ≥ 40 m wide (`MIST_CARD_M`) as `mist`, which becomes `MI_Sprite_mist_<atlas>` → `MI_Look_Mist` on the smoke master. The next-biggest puffs are ~23 m.
+  - Rendered through the plain smoke look they were nearly invisible (texture alpha × vertex alpha × opacity 0.5).
+  - `M_GTB_Smoke` has soft particles (`gtb_hlsl.SOFT_FADE`): `SoftFade` fades a sprite near the geometry behind it and `NearFade` near the camera. Mist uses 10 m and 20 m, puffs 1 m and off. Without it the cards cut hard lines through buildings.
+  - Tune it with `look.unreal.mist` (the user approved opacity 1.0). `CameraDepthFade` isn't exposed to Python, so the fades are an HLSL node on SceneDepth/PixelDepth.
 - Generator smoke (a live render target in the game, so not in the rip) has **two versions. Always offer the user the choice** and tell them how to switch: `python -m ue.fluid_smoke <capture> --show fluid|sprites`, visibility only, instant.
   - **fluid** (default, approved): the Niagara Fluids simulation `GeneratorPlume`. `python -m ue.fluid_smoke <capture>` builds it in the open editor; it isn't in the headless build yet.
     - It's a copy of the **fire** template (`Grid3D_Gas_Fire`), not the smoke template. The smoke template has a world-space turbulence bias that always pushes its smoke toward −x, and it can't be edited.

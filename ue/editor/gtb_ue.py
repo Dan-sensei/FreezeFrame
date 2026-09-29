@@ -195,10 +195,11 @@ def build_materials(plan, cap, masters, textures):
     and the per-material instances as its children."""
     mdir = f"{cap}/Materials"
     look_mis = {}
-    for key in ("surface", "surface_masked", "cloth", "snowdrift", "smoke", "fire", "plume", "snowfall", "sky", "tonemap"):
+    for key in ("surface", "surface_masked", "cloth", "snowdrift", "smoke", "mist", "fire", "plume", "snowfall", "sky",
+                "tonemap"):
         name = {"snowfall": "MI_Snowfall", "sky": "MI_Sky", "tonemap": "MI_Tonemap"}.get(
             key, "MI_Look_" + "".join(w.title() for w in key.split("_")))
-        look_mis[key] = material_instance(name, mdir, masters[key])
+        look_mis[key] = material_instance(name, mdir, masters["smoke" if key == "mist" else key])   # mist: smoke master
     mis = {}
     for m in plan["materials"]:
         mi = material_instance(m["name"], mdir, look_mis[m["parent"]])
@@ -373,6 +374,8 @@ def apply_look(look, plan, cap, look_mis, defaults):
     common = {k: p[k] for k in ("Opacity", "Billboard", "Rise")}
     set_params(look_mis["smoke"], dict(common, Ambient=p["Ambient"], NormalStrength=p["NormalStrength"],
                                        LoopSeconds=p["LoopSeconds"]), {"SmokeColor": p["SmokeColor"]})
+    set_params(look_mis["mist"], dict(common, Ambient=p["Ambient"], NormalStrength=p["NormalStrength"], **look["mist"]),
+               {"SmokeColor": p["SmokeColor"]})
     set_params(look_mis["fire"], dict(common, FireStrength=p["FireStrength"], LoopSeconds=0.0))
     pl = look["plume"]
     set_params(look_mis["plume"], {k: pl[k] for k in ("Period", "Height", "Grow", "Opacity", "Ambient",

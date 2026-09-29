@@ -15,7 +15,7 @@ F1, F2, F3, F4 = (unreal.CustomMaterialOutputType.CMOT_FLOAT1, unreal.CustomMate
                   unreal.CustomMaterialOutputType.CMOT_FLOAT3, unreal.CustomMaterialOutputType.CMOT_FLOAT4)
 
 # Bump when a master graph changes: existing masters are rebuilt in place.
-MASTER_VERSION = "8"
+MASTER_VERSION = "9"
 
 
 class Graph:
@@ -238,8 +238,13 @@ def build_smoke(mat, defaults, mpc):
         "SmokeColor": g.vector("SmokeColor", (0.45, 0.48, 0.57, 1), "Look"),
         "Ambient": g.scalar("Ambient", 0.25, "Look"),
     }), F3, {"Alpha": F1, "WorldN": F3, "Emis": F3}, desc="GTB Smoke")
+    fade = g.custom(hlsl.SOFT_FADE, {
+        "Alpha": (c, "Alpha"), "SceneZ": g.node(unreal.MaterialExpressionSceneDepth),
+        "PixelZ": g.node(unreal.MaterialExpressionPixelDepth),
+        "SoftFade": g.scalar("SoftFade", 100.0, "Look"), "NearFade": g.scalar("NearFade", 1.0, "Look"),
+    }, F1, desc="GTB Soft fade")
     g.out(c, "", MP.MP_BASE_COLOR)
-    g.out(c, "Alpha", MP.MP_OPACITY)
+    g.out(fade, "", MP.MP_OPACITY)
     g.out(c, "WorldN", MP.MP_NORMAL)
     g.out(c, "Emis", MP.MP_EMISSIVE_COLOR)
     for name, v in (("Roughness", 1.0), ("Specular", 0.0)):

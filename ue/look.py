@@ -21,6 +21,9 @@ Keys under look["unreal"] only affect Unreal; Blender ignores them:
   cloth            banners flutter in the snow's wind: {ripple, sway (fractions of the cloth's
                    length, at 2.5 m/s wind), wavelength (fraction of the length; below ~0.6
                    the game's 9-row banners zigzag), speed (ripples per second)}
+  mist             the game's ground-mist cards (smoke sprites >= 40 m wide, MI_Look_Mist): {opacity,
+                   soft_fade (m: fade out this close to the geometry behind, so the cards never cut
+                   a line through buildings), near_fade (m from the camera), loop_seconds (editor loop)}
   fluid_smoke      the generator's Niagara Fluids plume (python -m ue.fluid_smoke, docs/GENERATOR_SMOKE.md):
                    {rim_above_source (cm, furnace rim above the plan's plume source), center_offset (cm, x y
                    from the plume source to the furnace centre), source_shift (cm x y; the fire template's
@@ -49,6 +52,8 @@ UNREAL_DEFAULTS = {"exposure_offset": 0.0, "bloom_intensity": None, "bloom_thres
                              "detail": 1.0, "shadow": [0.13, 0.11, 0.095], "opacity": 1.0, "puff_size": 1.6,
                              "fire_reach": 25.0, "flame": 5.0, "flame_height": 0.16, "spread": 1.0},
                    "cloth": {"ripple": 0.03, "sway": 0.08, "wavelength": 0.75, "speed": 0.5},
+                   # The game's ground mist (tuned by eye in the editor, 2026-09-29).
+                   "mist": {"opacity": 1.0, "soft_fade": 10.0, "near_fade": 20.0, "loop_seconds": 30.0},
                    # Generator plume (Niagara Fluids fire template, smoke-heavy source). Tuned by eye
                    # against the user's viewport on the Frostpunk capture (2026-09-29).
                    "fluid_smoke": {"rim_above_source": 760.0, "center_offset": [8.0, 71.0], "source_shift": [-13.0, 0.0], "depth": 150.0, "scale": 2.0,
@@ -95,7 +100,7 @@ def rl(v, nd=5):
 
 def ue_look(look, plan, lut_path):
     u = dict(UNREAL_DEFAULTS, **(look.get("unreal") or {}))
-    for k in ("plume", "cloth"):
+    for k in ("plume", "cloth", "mist"):
         u[k] = dict(UNREAL_DEFAULTS[k], **((look.get("unreal") or {}).get(k) or {}))
     s = look["sun"]
     az, el = math.radians(s["azimuth"]), math.radians(s["elevation"])
@@ -154,6 +159,8 @@ def ue_look(look, plan, lut_path):
                       "Ambient": parts["ambient"], "LoopSeconds": u["smoke_loop_seconds"],
                       "NormalStrength": parts["normal_strength"], "FireStrength": parts["fire_strength"],
                       "SmokeColor": srgb_to_linear(parts["smoke_color"]) + [1.0]},
+        "mist": {"Opacity": u["mist"]["opacity"], "SoftFade": u["mist"]["soft_fade"] * CM,
+                 "NearFade": u["mist"]["near_fade"] * CM, "LoopSeconds": u["mist"]["loop_seconds"]},
         "snow": _snow(snow, plan),
         "plume": _plume(look, u["plume"], plan),
         "cloth": cloth_params(look),
