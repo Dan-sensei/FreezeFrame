@@ -63,8 +63,12 @@ slot_tex = {f"t{i}": {"role": "albedo", "details": {}} for i in range(4)}
 slot_tex.update({f"n{i}": {"role": "normal", "details": {"channels": "AG"}} for i in range(4)})
 slot_tex["n3"] = {"role": "albedo", "details": {}}                      # a normal taken for an albedo
 textures.slot_consensus([("ps", {"0": f"t{i}", "1": f"n{i}"}) for i in range(4)], slot_tex)
-from gtb.scene_common import packed_channels, assign_slots  # noqa: E402
+from gtb.scene_common import packed_channels, assign_slots, below_scene, decal_volume, overlay_layer  # noqa: E402
 flat_r = {"details": {"mean_rgb": [0.0, 0.51, 0.0]}}                  # Frostpunk banner normal map t0006
+# A unit box with split normals: 24 vertices, 8 distinct corners, 12 triangles.
+_c = np.array([[x, y, z] for x in (0, 1) for y in (0, 1) for z in (0, 1)], float)
+box_p = np.concatenate([_c[[0, 1, 3, 2]], _c[[4, 5, 7, 6]], _c[[0, 1, 5, 4]], _c[[2, 3, 7, 6]], _c[[0, 2, 6, 4]], _c[[1, 3, 7, 5]]])
+box_t = np.array([[f * 4, f * 4 + 1, f * 4 + 2] for f in range(6)] + [[f * 4, f * 4 + 2, f * 4 + 3] for f in range(6)])
 # A colour atlas bound with three different albedos (Frostpunk t0033) is a detail layer;
 # on a draw whose other colour is a grey bark map, the bark becomes the albedo.
 layer = {"a0": {"role": "albedo", "size": [2048, 2048], "file": "a0.png"},
@@ -82,6 +86,15 @@ checks.update({
     "textures: flat A+G normal is a normal": textures.classify(flat_ag, None) == ("normal", {"channels": "AG"}),
     "textures: slot consensus fixes a lone albedo in a normal slot": slot_tex["n3"]["role"] == "normal"
     and slot_tex["n3"]["details"].get("channels") == "AG" and slot_tex["t3"]["role"] == "albedo",
+    "scene: a surface whose only texture is a mask is an overlay (hidden)":
+    overlay_layer({"mask": {}}) and not overlay_layer({"mask": {}, "normal": {}}) and not overlay_layer({})
+    and not overlay_layer({"albedo": {}}),
+    "scene: a box with no colour texture is a decal volume, a textured crate isn't":
+    decal_volume(box_p, box_t, {"gray", "normal", "shared"}) and not decal_volume(box_p, box_t, {"albedo", "normal"})
+    and not decal_volume(box_p[:6], box_t[:4], {"gray"}),
+    "scene: geometry far below the scene is another pass's (hidden), a valley isn't":
+    below_scene([-150, -140, -131, -122, -118, -95, -900, -1500]) == [6, 7]
+    and below_scene([-150, -140, -131, -122, -118, -95, -230]) == [],
     "textures: an atlas bound with several albedos is a detail layer, not the base colour":
     layer["atlas"]["role"] == "detail" and all(layer[f"a{i}"]["role"] == "albedo" for i in range(3))
     and rock_slots["albedo"]["file"] == "a0.png" and bark_slots["albedo"]["file"] == "bark.png",

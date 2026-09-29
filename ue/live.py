@@ -141,7 +141,7 @@ import os, json, unreal
 D = json.loads(DATA)
 MEL, EAL = unreal.MaterialEditingLibrary, unreal.EditorAssetLibrary
 CAP = D["content"]
-changed = imported = reparented = created = reassigned = 0
+changed = imported = reparented = created = reassigned = shown = 0
 def texture(spec):
     global imported
     name = "T_" + os.path.splitext(spec["file"])[0]
@@ -186,11 +186,13 @@ with unreal.ScopedEditorTransaction("GTB: materials"):
     # Material names are numbered in order of first use, so a material added or merged
     # upstream renumbers the ones after it. Point every rip actor at the instance the
     # plan names, so the editor matches a fresh build even after such a shift.
+    # Visibility and folder follow the plan too (as gtb_ue.build_level: hidden effects).
     for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors():
-        want = D["actors"].get(a.get_actor_label())
-        c = a.get_component_by_class(unreal.StaticMeshComponent) if want else None
+        spec = D["actors"].get(a.get_actor_label())
+        c = a.get_component_by_class(unreal.StaticMeshComponent) if spec else None
         if c is None:
             continue
+        want, hide, folder = spec
         cur = c.get_material(0)
         if cur is None or cur.get_name() != want:
             mi = EAL.load_asset(f"{CAP}/Materials/{want}")
@@ -198,8 +200,17 @@ with unreal.ScopedEditorTransaction("GTB: materials"):
                 c.modify()
                 c.set_material(0, mi)
                 reassigned += 1
+        if c.is_visible() == hide or str(a.get_folder_path()) != folder:
+            a.modify()
+            c.modify()
+            c.set_visibility(not hide)
+            a.set_actor_hidden_in_game(hide)
+            a.set_folder_path(folder)
+            a.tags = ["gtb_" + folder.split()[0].lower()]
+            shown += 1
 print(f"GTB live: {len(D['materials'])} material instance(s) reset from the plan ({reparented} re-parented, "
-      f"{created} created), {reassigned} actor(s) re-pointed, {changed} texture(s) re-flagged, {imported} imported")
+      f"{created} created), {reassigned} actor(s) re-pointed, {shown} shown/hidden to match the plan, "
+      f"{changed} texture(s) re-flagged, {imported} imported")
 '''
 
 
@@ -226,7 +237,8 @@ def main():
         return
     if sys.argv[1] == "materials":
         print(_send(MATERIALS, dict(base, textures=plan["textures"], materials=plan["materials"],
-                                    actors={a["name"]: a["material"] for a in plan["actors"] if a.get("material")})), end="")
+                                    actors={a["name"]: (a["material"], bool(a.get("hidden")), a.get("folder", "Geometry"))
+                                            for a in plan["actors"] if a.get("material")})), end="")
         return
     data = dict(base, params=cloth_params(load_look(cap / "look.json")),
                 materials=[m["name"] for m in plan["materials"] if m["parent"] == "cloth"],

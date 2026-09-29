@@ -19,7 +19,8 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from gtb.scene_common import assign_slots, packed_channels, srgb_to_linear  # noqa: E402
+from gtb.scene_common import (assign_slots, below_scene, decal_volume, overlay_layer, packed_channels,  # noqa: E402
+                               scene_floor, srgb_to_linear)
 from ue.gltf import GlbWriter, blender_to_gltf  # noqa: E402
 
 CM = 100.0               # Blender metres -> Unreal centimetres
@@ -508,6 +509,22 @@ def export(capture: Path):
         if not prev or (prev["kind"] != "albedo" and spec["kind"] == "albedo"):
             used_textures[spec["file"]] = spec
 
+    # Geometry another render pass drew lands far below the scene (process.py hides it
+    # from new captures; this covers manifests written before that rule).
+    # Decal volumes (boxes that only project a texture) are hidden too; see scene_common.
+    surf, tops, decals = [], [], set()
+    for m in manifest["meshes"]:
+        if m.get("depth_write", True) and m.get("category", "surface") == "surface":
+            d = np.load(capture / m["file"])
+            p = d["positions"]
+            if len(p):
+                surf.append(m["name"])
+                tops.append(float(p[:, 2].max()))
+                roles = {(textures.get(t) or {}).get("role") for t in (m.get("textures") or {}).values()}
+                if decal_volume(p, d["indices"].reshape(-1, 3), roles) or                         overlay_layer(assign_slots(m.get("textures", {}), textures, profile)):
+                    decals.add(m["name"])
+    below = {surf[k] for k in below_scene(tops)} | decals
+
     for i, m in enumerate(manifest["meshes"]):
         data = dict(np.load(capture / m["file"]))
         tris = data["indices"].astype(np.int64).reshape(-1, 3)
@@ -595,7 +612,8 @@ def export(capture: Path):
                     materials[key] = mat
                 if materials[key]["scalars"].get("MultiplyVertexColor") and "colors" in data:
                     kw["colors"] = data["colors"]
-                is_surface = m.get("depth_write", True) and m.get("category", "surface") == "surface"
+                is_surface = (m.get("depth_write", True) and m.get("category", "surface") == "surface"
+                              and m["name"] not in below)
                 if is_surface:
                     actor["folder"] = "Geometry"
                     counts["surface"] += 1
@@ -657,7 +675,9 @@ def export(capture: Path):
               "near_cm": round(max(cam.get("near") or 0.1, 0.01) * CM, 2),
               "focus_cm": round(float(np.linalg.norm(target - M[:3, 3])) * CM, 1)}
 
-    lights = [{"location": r3(to_ue(L["location"]), 2), "range_cm": round(L["radius"] * CM, 2), "kind": L["kind"]}
+    floor = scene_floor(tops)
+    lights = [{"location": r3(to_ue(L["location"]), 2), "range_cm": round(L["radius"] * CM, 2), "kind": L["kind"],
+               "off": bool(L.get("off")) or (floor is not None and L["location"][2] < floor - 100.0)}
               for L in manifest.get("lights", [])]
     box = manifest.get("snow_box")
     plan = {

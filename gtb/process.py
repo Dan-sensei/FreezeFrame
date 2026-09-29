@@ -19,6 +19,7 @@ from pathlib import Path
 import numpy as np
 
 from gtb import nr, textures
+from gtb.scene_common import assign_slots, below_scene, decal_volume, overlay_layer, scene_floor
 from gtb.config import ROOT
 
 PROFILES = ROOT / "profiles"
@@ -628,6 +629,39 @@ def process(capture: Path):
             for name in b["tex"]:
                 sets.setdefault(name, set()).add(tuple(sorted(b["tex"])))
     lut_names = {n for n, u in sets.items() if len(u) >= 4}
+
+    # Deferred decal volumes (boxes that only project a texture) are hidden with the effects.
+    decals = 0
+    for b in built:
+        if b["cat"] == "surface" and decal_volume(b["pos"], b["tris"],
+                                                  {(tex_entries.get(tex_ids.get(n)) or {}).get("role") for n in b["tex"]}):
+            b["cat"] = "effect"
+            decals += 1
+    if decals:
+        print(f"[process] {decals} decal volume(s) hidden (boxes that project a texture)")
+    overlays = 0
+    for b in built:
+        if b["cat"] == "surface" and overlay_layer(assign_slots(
+                {str(s): tex_ids[n] for s, n in enumerate(b["tex"]) if n in tex_ids}, tex_entries, cfg)):
+            b["cat"] = "effect"
+            overlays += 1
+    if overlays:
+        print(f"[process] {overlays} overlay layer(s) hidden (only a mask texture, blended over the ground)")
+
+    # Geometry from another render pass lands far below the scene: hide it with the effects.
+    surf = [b for b in built if b["cat"] == "surface"]
+    tops = [float((b["pos"] @ R.T)[:, 2].max()) for b in surf]
+    below = below_scene(tops)
+    for k in below:
+        surf[k]["cat"] = "effect"
+    if below:
+        print(f"[process] {len(below)} surface draws far below the scene hidden (another render pass)")
+    floor = scene_floor(tops)
+    off = [l for l in lights if floor is not None and l["location"][2] < floor - 100.0]
+    for l in off:
+        l["off"] = True     # kept (light names are numbered by position), but not lit
+    if off:
+        print(f"[process] {len(off)} game light(s) far below the scene switched off")
 
     # Meshes
     mesh_dir = capture / "meshes"

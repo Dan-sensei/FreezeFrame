@@ -494,8 +494,9 @@ def apply_look(look, plan, cap, look_mis, defaults):
         set_color(pc, g["color"])
         pc.set_cast_shadows(g["shadows"])
         setp(pc, "use_inverse_squared_falloff", True)
-        pc.set_visibility(g["enabled"])
-        a.set_actor_hidden_in_game(not g["enabled"])
+        on = g["enabled"] and not L.get("off")      # off: far below the scene (export)
+        pc.set_visibility(on)
+        a.set_actor_hidden_in_game(not on)
 
     # Extra lights from look.json (rebuilt every time).
     eas = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)

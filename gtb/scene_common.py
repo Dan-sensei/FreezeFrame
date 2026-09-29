@@ -100,6 +100,55 @@ def packed_channels(mapping, entry):
     return out
 
 
+def overlay_layer(slots):
+    """A surface whose only texture is a mask has no colour or relief of its own: it is
+    an overlay the game blends over the real ground. Frostpunk: mesh_5267/5269, a 500 m
+    ring of frost streaks (t0129, mostly black) around the crater, floating a few metres
+    above the rim terrain. Drawn solid (flat snow) it buried the cliff tops and cut
+    through the mining frame on the crater wall (mesh_660). The game's screenshot shows
+    the terrain under it, so it is hidden with the effects. slots: assign_slots output."""
+    return bool(slots) and set(slots) == {"mask"}
+
+
+def decal_volume(positions, tris, roles):
+    """A box (12 triangles, 8 corners) with no colour texture is a deferred decal volume.
+    The game rasterises the box only to project its texture onto what is inside it; the
+    box itself is never seen. Frostpunk: 7 such boxes (mesh_1591-1598, mesh_1601), 3-125 m,
+    with a cloud-shaped mask, a normal and the shared snow texture, stamp snow patches on
+    the cliff tops; drawn as solid snow they were big cubes. Real boxes (crates,
+    mesh_1149) have a colour texture. roles: the roles of the mesh's textures."""
+    import numpy as np
+    if len(tris) != 12 or "albedo" in roles:
+        return False
+    return len(np.unique(np.round(np.asarray(positions, float), 3), axis=0)) == 8
+
+
+def below_scene(tops, gap=100.0, margin=100.0):
+    """Indices of surface meshes lying far below the scene: geometry that another render
+    pass drew, which the main camera's transform puts nowhere sensible. On Frostpunk
+    that's 136 blotchy strips and a snow ring, 0.7-2 km under a city whose surfaces all
+    top out between -200 m and the camera. tops: each surface mesh's highest point
+    (world z, m). The scene is the run of sorted tops around the median with no jump
+    over `gap`. A mesh whose top is more than `margin` below that run's lowest top is
+    below the scene. Nothing real is drawn in such an empty band under the ground."""
+    floor = scene_floor(tops, gap)
+    return [] if floor is None else [k for k, v in enumerate(tops) if v < floor - margin]
+
+
+def scene_floor(tops, gap=100.0):
+    """Lowest top of the run of sorted surface tops around the median with no jump over
+    `gap` (see below_scene). Lights more than 100 m under it belong with the geometry of
+    another pass (Frostpunk GL0000/GL0001, 750-850 m away)."""
+    import numpy as np
+    if len(tops) < 3:
+        return None
+    t = np.sort(np.asarray(tops, float))
+    i = len(t) // 2
+    while i > 0 and t[i] - t[i - 1] <= gap:
+        i -= 1
+    return float(t[i])
+
+
 def assign_slots(mesh_tex, textures, profile):
     """Pick one texture per role for a draw call; profile slot map wins."""
     slot_roles = {str(k): v for k, v in profile.get("slot_roles", {}).items()}

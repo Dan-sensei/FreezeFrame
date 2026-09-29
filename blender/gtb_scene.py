@@ -1035,6 +1035,8 @@ def build_game_lights(scene, lights):
     coll = bpy.data.collections.new("Game Lights")
     scene.collection.children.link(coll)
     for i, L in enumerate(lights):
+        if L.get("off"):    # far below the scene (process.py): another pass's light
+            continue
         data = bpy.data.lights.new(f"GL{i:04d}", "POINT")
         ob = bpy.data.objects.new(f"GL{i:04d}_{L['kind']}", data)
         ob.location = L["location"]

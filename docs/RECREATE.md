@@ -61,9 +61,13 @@ This runs `process` (rip → `manifest.json` + meshes + textures), `build` (→ 
 - `texture t0033: albedo -> detail (a layer over several other albedos, not a base colour)`: the game's 4096² snow/ice/moss/rock atlas, bound next to three different albedos. As a colour it painted the dead trees with a yellow moss tile.
 - `per-mesh winding: flipped 1353 meshes to match the game's normals`
 - `1 smoke plume(s) from smoke columns: ['mesh_5092_5092']` (the generator)
-- `wrote manifest with 2302 meshes {'surface': 1685, 'effect': 573, 'sprite': 44}`
+- `7 decal volume(s) hidden (boxes that project a texture)`: the snow-stamp boxes on the cliff tops (`mesh_1591`–`1598`, `1601`).
+- `2 overlay layer(s) hidden (only a mask texture, blended over the ground)`: the frost-streak ring around the crater (`mesh_5267`, `mesh_5269`).
+- `137 surface draws far below the scene hidden (another render pass)`: blotchy strips and a snow ring 0.7–2 km under the city.
+- `2 game light(s) far below the scene switched off` (`GL0000`, `GL0001`, 750–850 m away).
+- `wrote manifest with 2302 meshes {'surface': 1539, 'effect': 719, 'sprite': 44}`
 - The manifest has 384 lights (323 point and 61 hemi).
-- `built 1685 + 573 hidden effect objects, 44 particle sprites, 111 materials`
+- `built 1539 + 719 hidden effect objects, 44 particle sprites, 111 materials`
 - The new capture starts with the profile's look, which is the night look (`profiles/looks/frostpunk_night.json` without an exposure). `calibrate` should end at `exposure` −0.73 ± 0.05: the verification run got −0.73, and the original capture −0.76 under older material rules.
 
 Keep that calibrated night look under its own name, because step 5 replaces `look.json`:
@@ -88,7 +92,7 @@ python gtb.py unreal Frostpunk_20260929_115750
 
 The first ever run also compiles shaders and textures, which takes a few minutes more. Expected output:
 
-- `plan: {'surface': 1444, 'cloth': 44, 'effect': 573, 'sprite': 44, 'snowdrift': 241}, 112 materials, ... 384 game lights`. That is one more material than Blender's 111, because the ground-mist cards get their own (`MI_Sprite_mist_t0114`). `cloth` counts the red banners that flutter (they are also counted in `surface`). The export ray-casts each banner's clearance to the walls and frames around it, in a few seconds. `python -m ue.cloth_check Frostpunk_20260929_115750` must then print `0 banner(s) clip, 0 jerky, 4 barely move`.
+- `plan: {'surface': 1298, 'cloth': 44, 'effect': 719, 'sprite': 44, 'snowdrift': 241}, 112 materials, ... 384 game lights`. That is one more material than Blender's 111, because the ground-mist cards get their own (`MI_Sprite_mist_t0114`). `cloth` counts the red banners that flutter (they are also counted in `surface`). The export ray-casts each banner's clearance to the walls and frames around it, in a few seconds. `python -m ue.cloth_check Frostpunk_20260929_115750` must then print `0 banner(s) clip, 0 jerky, 4 barely move`.
 - The build takes about 60 s, with `smoke columns: 1` and `done (0 warnings)`.
 - `4 frame(s)` rendered by Movie Render Queue in about 25 s.
 - Night look: about 0.1 stops from the screenshot and from Blender's game view. Edge alignment against Blender is only 0.6–0.75, because the dense night snowfall uses different random flakes in each engine.
@@ -146,7 +150,7 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 ## 6. What "right" looks like (judge the images, not only the numbers)
 
 - **Framing:** the game camera matches the screenshot edge for edge (edge alignment against Blender is about 0.93–0.95).
-- **Snow:** roof snow sits on up-facing surfaces in patches. The rim plateau (mesh_5267/5269) and the far cliff tops (mesh_1592–1598) are **plain snow**. Black-and-white leopard spots there mean a grayscale mask was used as colour; see `assign_slots` in `gtb/scene_common.py`.
+- **Snow:** roof snow sits on up-facing surfaces in patches. Around the crater rim you see the snowy cliff tops and the mining frame on the wall (`mesh_660`). A flat white sheet over them means the frost-streak overlay ring (`mesh_5267`/`5269`) is being drawn solid; it should be hidden. No large snow cubes on the cliff tops: those were decal boxes (`mesh_1591`–`1598`, `1601`), now hidden. Black-and-white leopard spots there mean a grayscale mask was used as colour; see `assign_slots` in `gtb/scene_common.py`.
 - **Terrain:** the crater floor has no UVs and uses the flat `materials.ground_color`.
 - **Dead trees** (`MI_M023`, 61 meshes): grey bark (`t0046`) under frost, lying in the snow. No yellow-green or marble patches.
 - **Wood and metal:** the frosted planks of the banner stands, towers and building frames (`MI_M008`: colour `t0017`, normal `t0018`) are weathered grey-brown wood with frost. Green, orange or blue streaks mean a packed normal map is being used as colour; see step 8.
@@ -184,6 +188,10 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 - **Different mesh or texture counts after `process`:** check that the rip folder is complete (6,195 `.nr` files) and that `profiles/frostpunk.json` is unchanged.
 - **FOV not solved:** pre-VS data is missing. Ninja Ripper needs "save pre-VS" on.
 - **Green, orange or blue streaked surfaces** (or flat, texture-less ones): a normal map is being used as colour, or the other way round. **Yellow-green or marbled patches on trees and rocks**: the `t0033` atlas is being used as colour. Captures processed before these texture-role fixes (2026-09-29) need `python gtb.py textures <capture>` once. It needs no rip and should change 5 roles on this capture: `t0018`, `t0084` and `t0159` become normals, `t0091` an albedo, and `t0033` a detail layer. Running it again changes nothing. Then run `build` (close `scene.blend` first) and `unreal`, or `python -m ue.live materials <capture>` with the editor open.
+- **A grey gap in the terrain or a cliff, seen from a free camera:** the game skipped terrain chunks outside its view, so they aren't in the rip (Blender has the same gaps). Nothing was deleted: compare the level with `plan.json`. See "What in the rip isn't the scene" in `CLAUDE.md`.
+- **Lights hanging over empty snow** (e.g. `GL0011`): the game's own fill lights, with no visible fixture. The user chose to keep them.
+- **Big snow-coloured cubes on the cliff tops:** deferred decal volumes drawn as solid boxes. `scene_common.decal_volume` hides them in `process` and in the export, and `python -m ue.live materials <capture>` hides them in an open editor.
+- **Blotchy black-and-white strips or a snow ring floating far away:** geometry from another render pass, placed 0.7–2 km under the city. `scene_common.below_scene` hides it. For a capture processed before that rule, the Unreal export hides it anyway, and `python -m ue.live materials <capture>` hides it in an open editor.
 - **Unreal step fails:** read `captures/<name>/unreal/build.log`, then `build_engine.log`. For renders, read `render_stills_engine.log`.
 - **Unreal colours about a stop too bright or washed out:** the colour pass must stay before the tonemapper. See the Unreal section of `CLAUDE.md`.
 - **No generator smoke after step 4b:** give it 60–90 s if the editor isn't in focus. Then check that the sky dome has no collision (the script sets its profile to `NoCollision`) and that the three plugins are enabled. See [GENERATOR_SMOKE.md](GENERATOR_SMOKE.md), Pitfalls.
