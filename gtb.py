@@ -1,6 +1,7 @@
 """GameToBlender command line.
 
   python gtb.py watch                 run the capture daemon (hotkey -> screenshot + rip)
+  python gtb.py import <rip folder> [--name N]  make a capture from an existing Ninja Ripper rip
   python gtb.py process <capture>     parse the rip into manifest.json + meshes + textures
   python gtb.py build <capture>       build scene.blend (runs Blender headless)
   python gtb.py render <capture>      re-apply look.json, render preview, write comparison.png
@@ -139,6 +140,43 @@ def cmd_look(cfg, cap, name):
     cmd_calibrate(cfg, cap)
 
 
+def cmd_import(cfg, src, name=None):
+    """Create captures/<name>/capture.json for a rip that is already on disk (a
+    frame_NNNN folder, or Ninja Ripper's per-process folder: its newest frame).
+    `process` then reads the rip and uses Ninja Ripper's own !screenshot.dds."""
+    import re
+    from datetime import datetime
+    from gtb import nr
+    rip = Path(src).resolve()
+    if not any(rip.glob("*.nr")):
+        frames = sorted(rip.glob("frame_*"))
+        rip = frames[-1] if frames else rip
+    if not any(rip.glob("*.nr")):
+        sys.exit(f"no .nr files in {rip}")
+    desc = nr.read_ripdesc(rip) or nr.read_ripdesc(rip.parent)
+    m = re.match(r".*?_([^_]+\.exe)_\d+$", rip.parent.name, re.IGNORECASE)
+    exe = desc.get("executable") or (m.group(1) if m else "")
+    size = [int(desc.get("width") or 0), int(desc.get("height") or 0)]
+    shot = next(rip.glob("*screenshot*"), None)
+    if (not all(size)) and shot is not None:
+        from PIL import Image
+        with Image.open(shot) as im:
+            size = list(im.size)
+    stamp = datetime.fromtimestamp(rip.stat().st_mtime)
+    name = name or f"{Path(exe).stem or 'game'}_{stamp:%Y%m%d_%H%M%S}"
+    out = Path(cfg["captures_dir"]) / name
+    if (out / "capture.json").exists():
+        sys.exit(f"{out} already exists; pick another --name")
+    out.mkdir(parents=True, exist_ok=True)
+    meta = {"game_exe": exe, "window_title": "", "resolution": size, "captured_at": stamp.isoformat(timespec="seconds"),
+            "rip_dir": str(rip), "rip_files": [], "imported": True}
+    (out / "capture.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    print(f"[gtb] capture {out.name}: {exe} {size[0]}x{size[1]} from {rip}"
+          f"{'' if shot else ' (no Ninja Ripper screenshot found: add screenshot.png yourself)'}")
+    print(f"[gtb] next: python gtb.py all {out.name}")
+    return out
+
+
 def cmd_open(cfg, cap):
     subprocess.Popen([cfg["blender_exe"], str(cap / "scene.blend")])
 
@@ -164,12 +202,13 @@ def on_capture(cfg):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["watch", "process", "build", "render", "calibrate", "closeups", "look", "open",
+    ap.add_argument("command", choices=["watch", "import", "process", "build", "render", "calibrate", "closeups", "look", "open",
                                         "all", "unreal", "unreal-look", "unreal-render", "unreal-calibrate",
                                         "unreal-open"])
     ap.add_argument("capture", nargs="?", default="latest")
     ap.add_argument("preset", nargs="?", help="look: preset name from profiles/looks/")
     ap.add_argument("--save", action="store_true", help="render: also save look into scene.blend")
+    ap.add_argument("--name", help="import: capture folder name (default <game>_<rip time>)")
     ap.add_argument("--anim", action="store_true", help="unreal-render: render the animation sequence")
     ap.add_argument("--no-render", action="store_true", help="unreal / unreal-look: skip rendering")
     a = ap.parse_args()
@@ -178,6 +217,9 @@ def main():
     if a.command == "watch":
         from gtb.capture import CaptureDaemon
         CaptureDaemon(cfg, on_capture=on_capture(cfg)).run()
+        return
+    if a.command == "import":
+        cmd_import(cfg, a.capture, a.name)
         return
     cap = resolve_capture(cfg, a.capture)
     if a.command == "process":

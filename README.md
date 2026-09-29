@@ -42,6 +42,14 @@ game ──(Ninja Ripper frame rip + our screenshot, same keypress)──▶ cap
 
 Other commands: `process | build | render | calibrate | open | all <capture>`. `<capture>` is a folder under `captures/` or `latest`.
 
+A rip that is already on disk, for example one copied from another PC, becomes a capture with:
+
+```bash
+python gtb.py import "D:\NinjaRipperOutput\<date>_<game>.exe_<pid>" --name MyCapture
+```
+
+Then run `python gtb.py all MyCapture`. The step-by-step recreation of the Frostpunk capture, with its expected numbers, is in [docs/RECREATE.md](docs/RECREATE.md).
+
 ## The tuning pass
 
 `captures/<name>/look.json` controls everything that isn't geometry. After editing it, re-render:

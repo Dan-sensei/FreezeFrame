@@ -50,7 +50,12 @@ import cv2  # noqa: E402
 L = cv2.imread(str(lut), cv2.IMREAD_UNCHANGED)
 n = L.shape[0]
 grey = [L[i, i * n + i, 1] for i in range(n)]   # r = g = b along the diagonal
+imp = subprocess.run([sys.executable, str(ROOT / "gtb.py"), "import", str(Path(m["textures"]["t0000"]["source"]).parent),
+                      "--name", "_selftest/imported"], capture_output=True, text=True)
+imp_meta = json.loads((OUT / "imported" / "capture.json").read_text()) if imp.returncode == 0 else {}
 checks.update({
+    "import: capture.json from the rip": imp_meta.get("game_exe") == "Frostpunk.exe"
+    and imp_meta.get("resolution") == list(m["resolution"]),
     "unreal plan: 6 actors": len(plan["actors"]) == 6,
     "unreal plan: fov 45": abs(plan["camera"]["fov_y_deg"] - 45.0) < 0.05,
     "unreal plan: camera forward (x, -y, z)": np.allclose(plan["camera"]["forward"], fwd, atol=1e-4),

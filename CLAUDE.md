@@ -2,7 +2,9 @@
 
 Pipeline: Ninja Ripper 2 frame rip of a DX11 game → `gtb/process.py` (parse .nr, solve camera, classify draws/textures) → `blender/gtb_scene.py` (Blender 5.2 scene) → tune `look.json` against the game screenshot. See README.md for user-facing usage.
 
-Tested end to end on **Frostpunk 1** with Ninja Ripper 2.18 and Blender 5.2 (2026-09-29). Sekiro has a starting profile but no real capture yet.
+Tested end to end on **Frostpunk 1** with Ninja Ripper 2.18, Blender 5.2 and Unreal Engine 5.8.3 (2026-09-29). Sekiro has a starting profile but no real capture yet.
+
+**To recreate the Frostpunk scene from the rip (Blender and Unreal), follow [docs/RECREATE.md](docs/RECREATE.md).** It covers `gtb.py import` → `all` → `unreal`, and lists the expected numbers at each step.
 
 ## First run on a new PC
 - `captures/` and `config.json` are not in git. `config.json` is created on first run: check `blender_exe` (default `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`) and that `ripper_output_dir` ("auto") resolves to Ninja Ripper's output folder (`python gtb.py watch` prints it).
