@@ -95,6 +95,12 @@ def classify(arr: np.ndarray, info: dict | None):
     # engines): G and A centred on 0.5 and both varying.
     if alpha is not None and abs(mean[1] - .5) < .12 and abs(alpha.mean() - .5) < .1             and alpha.std() > .03 and std[1] > .03:
         return "normal", {"channels": "AG"}
+    # The same packing on a nearly flat surface: G and A pinned at 0.5 (the flat
+    # normal) while the masks in R/B vary. Frostpunk's frosted-planks set had its
+    # normal map (t0018) taken for the albedo, which painted walls green/orange.
+    if alpha is not None and abs(mean[1] - .5) < .05 and abs(alpha.mean() - .5) < .05 \
+            and std[1] < .03 and alpha.std() < .03 and max(std[0], std[2]) > .03:
+        return "normal", {"channels": "AG"}
 
     # A channel pinned at 0 or 1 everywhere while others vary is a packed mask
     # (e.g. R=metal, G unused, B=AO), never a real colour texture.
@@ -120,6 +126,101 @@ def classify(arr: np.ndarray, info: dict | None):
         opaque, clear = (alpha > .9).mean(), (alpha < .1).mean()
         cutout = bool(opaque > .5 and clear > .01 and 1 - opaque - clear < .15)
     return "albedo", {"has_alpha": cutout}
+
+
+def classify_with_stats(arr: np.ndarray, info: dict | None):
+    """classify() plus the statistics the material rules read later."""
+    role, details = classify(arr, info)
+    if arr.shape[-1] == 4:  # sprites: how much of the sheet is visible at all
+        a = arr[::4, ::4, 3]
+        details["alpha_mean"], details["alpha_std"] = round(float(a.mean()), 4), round(float(a.std()), 4)
+    rgb = arr[..., :3] if arr.shape[-1] >= 3 else np.repeat(arr[..., :1], 3, -1)
+    details["mean_rgb"] = [round(float(x), 4) for x in rgb.reshape(-1, 3)[::97].mean(0)]
+    if role == "gray":
+        # Brightness along the edges: tiling materials look the same there as inside,
+        # while stamped masks (terrain snow/height blends) fade to black.
+        g = rgb.mean(-1)
+        k = max(1, min(g.shape) // 64)
+        edge = np.concatenate([g[:k].ravel(), g[-k:].ravel(), g[:, :k].ravel(), g[:, -k:].ravel()])
+        details["border_mean"] = round(float(edge.mean()), 4)
+    return role, details
+
+
+def slot_consensus(draws, entries, min_textures=3, agree=0.75):
+    """Fix albedo <-> normal mix-ups from the shaders. A pixel shader reads each
+    texture slot the same way, so when most distinct textures bound to a
+    (shader, slot) share a role, a texture classified the other way everywhere
+    it is bound gets that role. Frostpunk: t0159 (a packed normal) was taken for
+    an albedo and t0091 (planks) for a normal. Grayscale/mask roles are left to
+    scene_common.assign_slots, which knows the terrain masks.
+    draws: iterable of (pixel shader, {slot: texture id}); entries are edited in
+    place. Returns {texture id: (old role, new role)}."""
+    from collections import Counter, defaultdict
+
+    def key(e):
+        ch = (e.get("details") or {}).get("channels")
+        return e["role"] + (f":{ch}" if e["role"] == "normal" and ch else "")
+
+    bound = defaultdict(set)
+    for shader, tex in draws:
+        for slot, tid in tex.items():
+            if (entries.get(tid) or {}).get("role") in ("albedo", "normal", "gray", "packed"):
+                bound[(shader, str(slot))].add(tid)
+    consensus = {}
+    for k, tids in bound.items():
+        role, n = Counter(key(entries[t]) for t in tids).most_common(1)[0]
+        if len(tids) >= min_textures and n / len(tids) >= agree:
+            consensus[k] = role
+    wanted = defaultdict(set)
+    for k, tids in bound.items():
+        if k in consensus:
+            for t in tids:
+                wanted[t].add(consensus[k])
+    changed = {}
+    for t, roles in wanted.items():
+        if len(roles) != 1:
+            continue
+        new, old = next(iter(roles)), key(entries[t])
+        if new == old or {new.split(":")[0], old.split(":")[0]} != {"albedo", "normal"}:
+            continue
+        role, _, channels = new.partition(":")
+        details = {k: v for k, v in (entries[t].get("details") or {}).items() if k not in ("channels", "has_alpha")}
+        details.update({"channels": channels} if channels else {"has_alpha": False})
+        details["role_from"] = "slot consensus"
+        entries[t].update(role=role, details=details)
+        changed[t] = (old, new)
+    return changed
+
+
+def surface_draws(meshes):
+    """(pixel shader, {slot: texture id}) of the manifest's surface draws."""
+    return [(m["shaders"][1], m.get("textures", {})) for m in meshes
+            if m.get("category") == "surface" and len(m.get("shaders") or []) >= 2]
+
+
+def reclassify(capture: Path):
+    """Re-run the role rules on a processed capture's saved textures (no rip
+    needed) and write manifest.json. Returns {texture id: (old, new)}."""
+    import json
+    capture = Path(capture)
+    path = capture / "manifest.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    entries = manifest["textures"]
+    before = {t: (e.get("role"), (e.get("details") or {}).get("channels")) for t, e in entries.items()}
+    for tid, e in entries.items():
+        # "shared" comes from usage, not pixels; EXR/constant/cube textures keep their role.
+        if e.get("role") in (None, "shared", "hdr", "constant", "environment") or not e.get("file", "").endswith(".png"):
+            continue
+        with open(capture / "textures" / e["file"], "rb") as fh:
+            img = Image.open(fh)
+            img.load()
+        arr = np.asarray(img, dtype=np.float32) / 255.0
+        role, details = classify_with_stats(arr[..., None] if arr.ndim == 2 else arr, e.get("info"))
+        e.update(role=role, details=details)
+    slot_consensus(surface_draws(manifest["meshes"]), entries)
+    path.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
+    after = {t: (e.get("role"), (e.get("details") or {}).get("channels")) for t, e in entries.items()}
+    return {t: (before[t], after[t]) for t in entries if before[t] != after[t]}
 
 
 def _cached(src: Path, dst_dir: Path):
@@ -151,19 +252,7 @@ def convert(src: Path, dst_dir: Path):
             img, arr = load_image(src)
     except Exception as e:  # unsupported/odd formats: keep going, report later
         return {"source": str(src), "error": str(e), "info": info}
-    role, details = classify(arr, info)
-    if arr.shape[-1] == 4:  # sprites: how much of the sheet is visible at all
-        a = arr[::4, ::4, 3]
-        details["alpha_mean"], details["alpha_std"] = round(float(a.mean()), 4), round(float(a.std()), 4)
-    rgb = arr[..., :3] if arr.shape[-1] >= 3 else np.repeat(arr[..., :1], 3, -1)
-    details["mean_rgb"] = [round(float(x), 4) for x in rgb.reshape(-1, 3)[::97].mean(0)]
-    if role == "gray":
-        # Brightness along the edges: tiling materials look the same there as inside,
-        # while stamped masks (terrain snow/height blends) fade to black.
-        g = rgb.mean(-1)
-        k = max(1, min(g.shape) // 64)
-        edge = np.concatenate([g[:k].ravel(), g[-k:].ravel(), g[:, :k].ravel(), g[:, -k:].ravel()])
-        details["border_mean"] = round(float(edge.mean()), 4)
+    role, details = classify_with_stats(arr, info)
     out = dst_dir / (src.stem + (".exr" if role == "hdr" else ".png"))
     if cached and out.suffix == ".png":
         return {"source": str(src), "file": out.name, "role": role, "details": details, "info": info,

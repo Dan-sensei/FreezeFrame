@@ -3,6 +3,7 @@
   python gtb.py watch                 run the capture daemon (hotkey -> screenshot + rip)
   python gtb.py import <rip folder> [--name N]  make a capture from an existing Ninja Ripper rip
   python gtb.py process <capture>     parse the rip into manifest.json + meshes + textures
+  python gtb.py textures <capture>    re-run the texture role rules on a processed capture (no rip needed)
   python gtb.py build <capture>       build scene.blend (runs Blender headless)
   python gtb.py render <capture>      re-apply look.json, render preview, write comparison.png
   python gtb.py calibrate <capture>   auto-match exposure to the screenshot (part of `all`)
@@ -202,7 +203,7 @@ def on_capture(cfg):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["watch", "import", "process", "build", "render", "calibrate", "closeups", "look", "open",
+    ap.add_argument("command", choices=["watch", "import", "process", "textures", "build", "render", "calibrate", "closeups", "look", "open",
                                         "all", "unreal", "unreal-look", "unreal-render", "unreal-calibrate",
                                         "unreal-open"])
     ap.add_argument("capture", nargs="?", default="latest")
@@ -224,6 +225,13 @@ def main():
     cap = resolve_capture(cfg, a.capture)
     if a.command == "process":
         cmd_process(cfg, cap)
+    elif a.command == "textures":
+        from gtb.textures import reclassify
+        changed = reclassify(cap)
+        for tid, (old, new) in sorted(changed.items()):
+            print(f"[textures] {tid}: {old[0]}{':' + old[1] if old[1] else ''} -> {new[0]}{':' + new[1] if new[1] else ''}")
+        print(f"[textures] {len(changed)} role(s) changed" + ("; rebuild with `build` (Blender) and `unreal`, or "
+              "`python -m ue.live materials` with the editor open" if changed else ""))
     elif a.command == "build":
         cmd_build(cfg, cap)
     elif a.command == "render":

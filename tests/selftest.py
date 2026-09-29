@@ -53,6 +53,21 @@ grey = [L[i, i * n + i, 1] for i in range(n)]   # r = g = b along the diagonal
 imp = subprocess.run([sys.executable, str(ROOT / "gtb.py"), "import", str(Path(m["textures"]["t0000"]["source"]).parent),
                       "--name", "_selftest/imported"], capture_output=True, text=True)
 imp_meta = json.loads((OUT / "imported" / "capture.json").read_text()) if imp.returncode == 0 else {}
+# Texture roles: a nearly flat normal packed in A+G (roughness/mask in R/B) is not
+# an albedo; and the shader slot consensus overrides a lone contrary classification.
+from gtb import textures  # noqa: E402
+rng = np.random.default_rng(3)
+flat_ag = np.stack([rng.random((256, 256)), 0.5 + 0.01 * rng.standard_normal((256, 256)),
+                    0.3 * rng.random((256, 256)), 0.5 + 0.005 * rng.standard_normal((256, 256))], -1).astype(np.float32)
+slot_tex = {f"t{i}": {"role": "albedo", "details": {}} for i in range(4)}
+slot_tex.update({f"n{i}": {"role": "normal", "details": {"channels": "AG"}} for i in range(4)})
+slot_tex["n3"] = {"role": "albedo", "details": {}}                      # a normal taken for an albedo
+textures.slot_consensus([("ps", {"0": f"t{i}", "1": f"n{i}"}) for i in range(4)], slot_tex)
+checks.update({
+    "textures: flat A+G normal is a normal": textures.classify(flat_ag, None) == ("normal", {"channels": "AG"}),
+    "textures: slot consensus fixes a lone albedo in a normal slot": slot_tex["n3"]["role"] == "normal"
+    and slot_tex["n3"]["details"].get("channels") == "AG" and slot_tex["t3"]["role"] == "albedo",
+})
 checks.update({
     "import: capture.json from the rip": imp_meta.get("game_exe") == "Frostpunk.exe"
     and imp_meta.get("resolution") == list(m["resolution"]),

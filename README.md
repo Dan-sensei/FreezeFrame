@@ -40,7 +40,7 @@ game ──(Ninja Ripper frame rip + our screenshot, same keypress)──▶ cap
 
    The camera shows the game screenshot as a 50% overlay, so you can check the match.
 
-Other commands: `process | build | render | calibrate | open | all <capture>`. `<capture>` is a folder under `captures/` or `latest`.
+Other commands: `process | textures | build | render | calibrate | open | all <capture>`. `<capture>` is a folder under `captures/` or `latest`. `textures` re-runs the texture-role rules on a capture that is already processed, without the rip; follow it with `build`.
 
 A rip that is already on disk, for example one copied from another PC, becomes a capture with:
 

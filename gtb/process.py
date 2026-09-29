@@ -606,6 +606,11 @@ def process(capture: Path):
             tex_entries[tex_ids[name]]["role"] = "shared"
     if shared:
         print(f"[process] {len(shared)} shared engine textures ignored (bound by many shader types)")
+    fixed = textures.slot_consensus(
+        [(b["dd"].d.shaders[1], {str(s): tex_ids[n] for s, n in enumerate(b["tex"]) if n in tex_ids})
+         for b in built if b["cat"] == "surface" and len(b["dd"].d.shaders) >= 2], tex_entries)
+    for tid, (old, new) in fixed.items():
+        print(f"[process] texture {tid}: {old} -> {new} (what its shader slots read)")
     nr_shot = pick_reference_screenshot(capture, rip, (width, height), set(tex_ids))
     roles = Counter(e.get("role", "error") for e in tex_entries.values())
     print(f"[process] {len(tex_entries)} textures: {dict(roles)}")

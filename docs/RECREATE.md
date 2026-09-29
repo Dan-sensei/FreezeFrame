@@ -57,6 +57,7 @@ This runs `process` (rip → `manifest.json` + meshes + textures), `build` (→ 
 
 - `solved FOV from 1041 rigid draws: fov_y=55.00 deg, aspect=2.389`
 - `220 textures`. One of them is auto-detected as a shared engine texture and ignored.
+- `texture t0091: normal:AG -> albedo` and `texture t0159: albedo -> normal:AG`: the shader slot consensus correcting two roles. `t0018` and `t0084` are already classified as normals. See the texture-role note in `CLAUDE.md`.
 - `per-mesh winding: flipped 1353 meshes to match the game's normals`
 - `1 smoke plume(s) from smoke columns: ['mesh_5092_5092']` (the generator)
 - `wrote manifest with 2302 meshes {'surface': 1685, 'effect': 573, 'sprite': 44}`
@@ -124,6 +125,7 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 - **Framing:** the game camera matches the screenshot edge for edge (edge alignment against Blender is about 0.93–0.95).
 - **Snow:** roof snow sits on up-facing surfaces in patches. The rim plateau (mesh_5267/5269) and the far cliff tops (mesh_1592–1598) are **plain snow**. Black-and-white leopard spots there mean a grayscale mask was used as colour; see `assign_slots` in `gtb/scene_common.py`.
 - **Terrain:** the crater floor has no UVs and uses the flat `materials.ground_color`.
+- **Wood and metal:** the frosted planks of the banner stands, towers and building frames (`MI_M008`: colour `t0017`, normal `t0018`) are weathered grey-brown wood with frost. Green, orange or blue streaks mean a packed normal map is being used as colour; see step 8.
 - **Lights:** street lamps and building lights glow warm (384 game lights). The generator glows.
 - **Smoke:** chimney smoke sprites sit at the chimneys. The generator has a tall dark smoke column (Unreal only, `SmokeColumn00`). Blender's volumetric version (`smoke.enabled`) is off in both presets. Smoke puffs rise and fade in a loop in the Unreal editor.
 - **Snowfall:** flakes fall around the camera in stills and in the animation.
@@ -155,6 +157,7 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 
 - **Different mesh or texture counts after `process`:** check that the rip folder is complete (6,195 `.nr` files) and that `profiles/frostpunk.json` is unchanged.
 - **FOV not solved:** pre-VS data is missing. Ninja Ripper needs "save pre-VS" on.
+- **Green, orange or blue streaked surfaces** (or flat, texture-less ones): a normal map is being used as colour, or the other way round. Captures processed before the texture-role fix (2026-09-29) need `python gtb.py textures <capture>` once. It needs no rip and should change 4 roles on this capture. Then run `build` (close `scene.blend` first) and `unreal`, or `python -m ue.live materials <capture>` with the editor open.
 - **Unreal step fails:** read `captures/<name>/unreal/build.log`, then `build_engine.log`. For renders, read `render_stills_engine.log`.
 - **Unreal colours about a stop too bright or washed out:** the colour pass must stay before the tonemapper. See the Unreal section of `CLAUDE.md`.
 - **Anything else:** use the lessons list in `CLAUDE.md`. Fix things in code or the profile and re-run the step, never by hand in the `.blend` or the level.
