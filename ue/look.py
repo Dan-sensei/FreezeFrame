@@ -32,6 +32,18 @@ def lut_key(look):
                  LUT_SIZE, LUT_LO, LUT_HI))
 
 
+def lut_display_linear(lut_path, x):
+    """Where a grey scene-linear value x ends up after Blender's view transform
+    (display value decoded back to linear), read from the baked LUT's diagonal."""
+    import cv2
+    lut = cv2.imread(str(lut_path), cv2.IMREAD_UNCHANGED).astype(np.float64) / 65535.0
+    n = lut.shape[0]
+    diag = np.array([lut[i, i * n + i, :3].mean() for i in range(n)])
+    t = np.clip((math.log2(max(x, 1e-12)) - LUT_LO) / (LUT_HI - LUT_LO), 0, 1) * (n - 1)
+    d = float(np.interp(t, np.arange(n), diag))
+    return round(d / 12.92 if d <= 0.04045 else ((d + 0.055) / 1.055) ** 2.4, 4)
+
+
 def _euler_dir(rot_deg, local):
     """Blender XYZ Euler (degrees) applied to a local vector."""
     x, y, z = (math.radians(a) for a in rot_deg)
@@ -58,11 +70,14 @@ def ue_look(look, plan, lut_path):
     snow = look["snow"]
     r = look["render"]
 
-    # Blender's bloom (compositor glare) runs before the view transform like
-    # Unreal's; strength/size map roughly onto intensity/size.
+    # Blender's bloom (compositor glare) thresholds scene-linear values before the
+    # view transform. Unreal's bloom runs after GTB's colour pass, on display-
+    # referred values, so the threshold goes through the same LUT.
     b = look["bloom"]
-    bloom = {"intensity": u["bloom_intensity"] if u["bloom_intensity"] is not None else b["strength"] * 0.8,
-             "threshold": u["bloom_threshold"] if u["bloom_threshold"] is not None else b["threshold"],
+    bloom = {"intensity": (u["bloom_intensity"] if u["bloom_intensity"] is not None else b["strength"] * 0.8)
+             if b["strength"] > 0 else 0.0,
+             "threshold": u["bloom_threshold"] if u["bloom_threshold"] is not None
+             else lut_display_linear(lut_path, b["threshold"]),
              "size_scale": 4.0 * max(b["size"], 0.05) / 0.5}
 
     out = {

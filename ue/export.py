@@ -324,6 +324,7 @@ def export(capture: Path):
             kw["normals"] = blender_to_gltf(smooth_normals(pos_b, tris))
             actor.update(cast_shadow=False, folder="Particles")
             counts["sprite"] += 1
+            surfaces_for_ray.append((pos_b, tris))   # Blender's close-up ray hits sprites too
         else:
             tex_entries = [textures[t] for t in m.get("textures", {}).values() if t in textures]
             kw["normals"] = blender_to_gltf(data["normals"] if "normals" in data else smooth_normals(pos_b, tris))

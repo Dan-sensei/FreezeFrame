@@ -256,10 +256,13 @@ return pow(fall, 1.6) * Opacity;
 """
 
 # Blender's compositor grade + view transform, baked by ue/blender_lut.py.
-# Scene colour here is still pre-exposed (Unreal skips that for tonemapper
-# replacements), and bloom arrives separately.
+# Runs before Unreal's tonemapper, which the look sets to a neutral pass-through
+# (Filmic with tone curve 0): so output the display value decoded to linear and
+# undo the exposure the tonemapper applies. Unreal then encodes for whatever the
+# output is (sRGB viewport, Movie Render Queue's linear capture, ...). Scene colour
+# here is exposure-free (pre-exposure is handled by the engine).
 TONEMAP = r"""
-float3 c = (Scene.rgb + Bloom.rgb * BloomScale) * View.OneOverPreExposure * Scale;
+float3 c = Scene.rgb * Scale;
 float n = Size;
 float3 t = saturate((log2(max(c, 1e-12)) - Lo) / (Hi - Lo)) * (n - 1.0);
 float b0 = floor(t.b);
@@ -268,5 +271,7 @@ float fb = t.b - b0;
 float v = (t.g + 0.5) / n;
 float3 A = Texture2DSampleLevel(Lut, LutSampler, float2((b0 * n + t.r + 0.5) / (n * n), v), 0).rgb;
 float3 B = Texture2DSampleLevel(Lut, LutSampler, float2((b1 * n + t.r + 0.5) / (n * n), v), 0).rgb;
-return lerp(A, B, fb);
+float3 d = saturate(lerp(A, B, fb));
+float3 lin = lerp(pow((d + 0.055) / 1.055, 2.4), d / 12.92, step(d, 0.04045));
+return lin / max(Exposure, 1e-8);
 """

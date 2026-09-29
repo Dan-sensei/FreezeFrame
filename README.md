@@ -95,6 +95,39 @@ The console output of `process` tells you most of this:
 - Skinned characters, foliage with wind and GPU particles are placed correctly on screen, but they are frozen in their posed state.
 - Everything is placed in camera space. The camera sits at the origin with its real pitch, and the ground is levelled to +Z.
 
+## Unreal Engine
+
+The same capture can also be opened in Unreal Engine 5 (tested with 5.8). Unreal is found automatically, or you can set `unreal_editor` in `config.json` to the path of `UnrealEditor-Cmd.exe`.
+
+```bash
+python gtb.py unreal latest
+```
+
+This command builds and saves a level in a generated project, `unreal_project/GameToBlender.uproject`. Each capture's level is at `/Game/GTB/<capture>/<capture>`. The command then renders it headless with Movie Render Queue and writes `captures/<name>/unreal/`:
+- `comparison.png`: the Unreal render compared with the game screenshot.
+- `parity.png`: the game, Blender and Unreal side by side, for the game camera and the three close-ups.
+- `metrics.json`: the numbers, including a `vs_blender` block.
+
+The build reads `manifest.json` directly, so Unreal makes the same decisions as the Blender builder:
+- **Meshes** keep their per-mesh winding and custom normals.
+- **Materials** follow the same rules as Blender. Albedo alpha is a cut-out mask. A+G normals carry R as roughness. Roof snow goes on up-facing surfaces, using a port of Blender's noise so the patches match. Snow drifts get the snow material, and untextured terrain gets a flat colour. All per-look values live on one material instance per master, `MI_Look_*`.
+- **Lighting** comes from `look.json` in the same units as Blender. The sun becomes a directional light and the sky a flat sky light plus a dome. Depth fog becomes an exponential height fog, converted exactly. The 384 game lights become point lights (P / 4π candela).
+- **Colour**: Blender bakes its own grade and AgX look into a 3D LUT. A post-process material that replaces Unreal's tonemapper applies it, so the same `look.json` produces the same colours.
+- **Smoke and fire sprites** are re-faced to the camera by their material. **Snowfall** is 100k flake quads placed by the material from time and camera, like the Blender geometry nodes. Both are driven by a time parameter that the Level Sequence animates, so stills are repeatable and scrubbing works.
+- **Cameras**: `GameCamera` is a CineCameraActor with the solved FOV. `Closeup35`, `Closeup15` and `CloseupLow` are the same check views as `gtb.py closeups`.
+- **Sequences**: `Render/LS_Anim` is the 250-frame animation and `Render/LS_Stills` holds the four stills, with matching `MRQ_*` render configs.
+
+Other commands:
+
+| command | what it does |
+|---|---|
+| `unreal-look <capture>` | Re-apply `look.json` (lights, fog, LUT, material values) without re-importing, then render and compare |
+| `unreal-render <capture> [--anim]` | Render the stills again, or with `--anim` the animation, to `unreal/renders/anim/` |
+| `unreal-calibrate <capture>` | Match exposure to the screenshot. Unless the look has `calibrate: false`, this sets `unreal.exposure_offset` in `look.json` |
+| `unreal-open <capture>` | Open the level in the Unreal editor |
+
+Keys under `"unreal"` in `look.json` only affect Unreal: `exposure_offset` (stops), `bloom_intensity`, `bloom_threshold`, `warmup_frames`, `temporal_samples`, `anim_frames` and `fps`. Blender ignores them. Volumetric smoke plumes (`smoke.enabled`) are Blender-only; in Unreal the game's smoke sprites carry the smoke.
+
 ## Self-test (no game needed)
 
 ```bash

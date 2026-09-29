@@ -429,11 +429,16 @@ def apply_look(look, plan, cap, look_mis, defaults):
     fc.set_volumetric_fog(False)
     setp(fc, "sky_atmosphere_ambient_contribution_color_scale", lc([0, 0, 0]))
 
-    # Post process: our tonemapper replacement, manual exposure, bloom, GI strength.
+    # Post process: Blender's view transform (our LUT pass) and a neutral Unreal
+    # tonemapper that only encodes for the output; manual exposure, bloom, GI strength.
     ppv = actors["PostProcess"]
     ps = ppv.get_editor_property("settings")
     b = look["bloom"]
-    for k, v in {"auto_exposure_method": unreal.AutoExposureMethod.AEM_MANUAL, "auto_exposure_bias": 0.0,
+    for k, v in {"tonemapping_method": unreal.TonemappingMethod.FILMIC, "tone_curve_amount": 0.0,
+                 "blue_correction": 0.0, "expand_gamut": 0.0,
+                 "local_exposure_highlight_contrast_scale": 1.0, "local_exposure_shadow_contrast_scale": 1.0,
+                 "local_exposure_detail_strength": 1.0,
+                 "auto_exposure_method": unreal.AutoExposureMethod.AEM_MANUAL, "auto_exposure_bias": 0.0,
                  "auto_exposure_apply_physical_camera_exposure": False,
                  "bloom_method": unreal.BloomMethod.BM_SOG, "bloom_intensity": b["intensity"],
                  "bloom_threshold": b["threshold"], "bloom_size_scale": b["size_scale"],

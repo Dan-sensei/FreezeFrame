@@ -15,7 +15,7 @@ F1, F2, F3, F4 = (unreal.CustomMaterialOutputType.CMOT_FLOAT1, unreal.CustomMate
                   unreal.CustomMaterialOutputType.CMOT_FLOAT3, unreal.CustomMaterialOutputType.CMOT_FLOAT4)
 
 # Bump when a master graph changes: existing masters are rebuilt in place.
-MASTER_VERSION = "2"
+MASTER_VERSION = "3"
 
 
 class Graph:
@@ -256,13 +256,12 @@ def build_sky(mat, defaults, mpc):
 
 def build_tonemap(mat, defaults, mpc):
     _reset(mat, material_domain=unreal.MaterialDomain.MD_POST_PROCESS,
-           blendable_location=unreal.BlendableLocation.BL_REPLACING_TONEMAPPER)
+           blendable_location=unreal.BlendableLocation.BL_SCENE_COLOR_BEFORE_BLOOM)
     g = Graph(mat, mpc)
     scene = g.node(unreal.MaterialExpressionSceneTexture, scene_texture_id=unreal.SceneTextureId.PPI_POST_PROCESS_INPUT0)
-    bloom = g.node(unreal.MaterialExpressionSceneTexture, scene_texture_id=unreal.SceneTextureId.PPI_POST_PROCESS_INPUT2)
     c = g.custom(hlsl.TONEMAP, {
-        "Scene": (scene, "Color"), "Bloom": (bloom, "Color"), "Lut": g.texture("LUT", defaults["lut"]),
-        "Scale": g.scalar("ExposureScale", 1.0, "Look"), "BloomScale": g.scalar("BloomScale", 1.0, "Look"),
+        "Scene": (scene, "Color"), "Exposure": g.node(unreal.MaterialExpressionEyeAdaptation),
+        "Lut": g.texture("LUT", defaults["lut"]), "Scale": g.scalar("ExposureScale", 1.0, "Look"),
         "Size": g.scalar("LutSize", 64.0), "Lo": g.scalar("LutLo", -12.0), "Hi": g.scalar("LutHi", 8.0),
     }, F3, desc="GTB Blender view transform")
     g.out(c, "", MP.MP_EMISSIVE_COLOR)
