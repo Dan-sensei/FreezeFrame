@@ -4,6 +4,12 @@ Pipeline: Ninja Ripper 2 frame rip of a DX11 game → `gtb/process.py` (parse .n
 
 Tested end to end on **Frostpunk 1** with Ninja Ripper 2.18 and Blender 5.2 (2026-09-29). Sekiro has a starting profile but no real capture yet.
 
+## First run on a new PC
+- `captures/` and `config.json` are not in git. `config.json` is created on first run: check `blender_exe` (default `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`) and that `ripper_output_dir` ("auto") resolves to Ninja Ripper's output folder (`python gtb.py watch` prints it).
+- `python -m pip install -r requirements.txt`, then `python tests/selftest.py` must print all PASS before a real capture.
+- Ninja Ripper settings that worked: frame rip = PrintScreen, textures DDS, save pre-VS and post-VS meshes, screenshots on (`%PUBLIC%\ninjaripper\nr218\nrconfig.xml`). The output folder needs space (~5 GB per Frostpunk frame).
+- The first Frostpunk capture should need little manual work thanks to `profiles/frostpunk.json`. If something looks wrong, diagnose from the data (per-shader groups, texture contact sheets, ray casts in Blender) and put the fix in code or the profile, not in the .blend.
+
 ## Working with the user
 - Judge results against the user's own screenshots and game references, not only the metrics. Users care about close-up shots, not just the game camera view, so always check `python gtb.py closeups <capture>` renders too.
 - Use stills **and** animation: snow/smoke are driven by the frame number (no baking).
