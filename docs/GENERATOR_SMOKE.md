@@ -21,7 +21,7 @@ python -m ue.fluid_smoke Frostpunk_20260929_115750 --show sprites
 python -m ue.fluid_smoke Frostpunk_20260929_115750 --show fluid
 ```
 
-`--show` only changes visibility, as one undo step, unsaved. It pauses the simulation while the sprites show. Every run of the script prints the command to switch.
+`--show` only changes visibility, as one undo step, unsaved. It pauses the simulation while the sprites show. Every run of the script prints the command to switch. One exception: if `GeneratorPlume` has lost its Niagara system (see Pitfalls, "A plume that shows nothing"), `--show fluid` rebuilds the plume instead.
 
 ## Recreate it
 
@@ -38,7 +38,7 @@ Then, with the editor open:
 python -m ue.fluid_smoke Frostpunk_20260929_115750
 ```
 
-The script runs in about a minute: it copies and compiles the material, then copies and recompiles the Niagara system. It prints `GTB fluid smoke: GeneratorPlume at (-5031, -8483, -12311), M_GTB_FluidGas rebuilt, ...`. The simulation starts empty and fills in about 30 s; an editor that isn't in focus ticks slower, so allow 60–90 s there. Everything is in one undo step and **unsaved**: File → Save All keeps it.
+The script runs in about a minute: it copies and compiles the material, then copies and recompiles the Niagara system. It prints `GTB fluid smoke: GeneratorPlume at (-5031, -8483, -12311), M_GTB_FluidGas rebuilt, ...`. The simulation starts empty and fills in about 30 s; an editor that isn't in focus ticks slower, so allow 60–90 s there. The script saves the three assets it makes (`M_GTB_FluidGas`, `MI_GTB_GeneratorPlume`, `NS_GTB_GeneratorPlume`) right away. The level changes (the actors, the hidden sprite column) are one undo step and **unsaved**: File → Save All keeps them.
 
 To try changes without touching the real plume, build a copy beside it and delete it afterwards:
 
@@ -135,6 +135,7 @@ Heterogeneous Volume console variables (in `DefaultEngine.ini`, `[SystemSettings
 - **Settings that make the volume vanish:** `r.HeterogeneousVolumes.DownsampleFactor 1`, and the volume renderer's `LightingDownsampleFactor 1`. Keep both at 2.
 - **The source can't be offset inside the grid.** `StaticMeshLocation` → `Sampled Position Offset` had no effect, so the grid stays centred on the actor and half of it is below the furnace.
 - **Orange everywhere.** The fire template gives the gas an orange colour and emission; `GTB_AlbedoBind 0` and a low `GTB_FireGain` handle that. The base light's reach must stay short: at 15 m it tinted the whole plume peach.
+- **A plume that shows nothing after reopening the level.** Its Niagara component has no system (`get_asset()` is None): the level was saved with the `GeneratorPlume` actor, but not the new `NS_GTB_GeneratorPlume` and `MI_GTB_GeneratorPlume` assets. Ctrl+S saves only the level, and closing the editor without saving then drops those unsaved assets. That happened on 2026-09-30. The script now saves its own assets as soon as it builds them. `--show fluid` detects a plume without a system and rebuilds it (about 20 s). Running `python -m ue.fluid_smoke <capture>` fixes it too.
 - **Actor moves can silently not stick.** Read the location back after moving it.
 - **Captures.** A `SceneCapture2D` renders the fluid, but the background editor ticks slowly: wait 60–90 s after `reset_system` before capturing. The user, watching the focused viewport, sees it in 30 s, so for colour and look tweaks let them judge in the viewport.
 

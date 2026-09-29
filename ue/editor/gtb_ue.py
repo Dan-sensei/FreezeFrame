@@ -290,7 +290,10 @@ def place_camera(view, cam_info, label):
 def build_level(plan, cap_name, meshes, mis, look_mis, snow_mesh, defaults):
     les, level_path = open_level(cap_name)
     eas = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
-    old = [a for a in all_actors() if not isinstance(a, (unreal.WorldSettings, unreal.Brush))]
+    # Keep only the world settings and the builder brush. Volumes are brushes too, and
+    # keeping them left one more PostProcess volume per rebuild (6 on the Frostpunk level).
+    old = [a for a in all_actors() if not isinstance(a, unreal.WorldSettings)
+           and not (isinstance(a, unreal.Brush) and not isinstance(a, unreal.Volume))]
     if old:
         eas.destroy_actors(old)
     n = 0

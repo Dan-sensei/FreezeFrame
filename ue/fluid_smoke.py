@@ -5,7 +5,8 @@
                                                            a separate copy beside it, for testing
     python -m ue.fluid_smoke <capture> --remove --suffix _Test   delete that copy again
     python -m ue.fluid_smoke <capture> --show sprites       switch to the sprite column (SmokeColumnNN)
-    python -m ue.fluid_smoke <capture> --show fluid         and back (visibility only, no rebuild)
+    python -m ue.fluid_smoke <capture> --show fluid         and back (visibility only; rebuilds a plume
+                                                            whose Niagara system is missing)
 
 There are two generator smokes; offer the user the choice (docs/GENERATOR_SMOKE.md):
   fluid    a Niagara Fluids simulation (this script): light, billowing, rises out of the furnace
@@ -307,11 +308,16 @@ with unreal.ScopedEditorTransaction("GTB: generator fluid smoke" + SFX):
 for cmd in ("r.HeterogeneousVolumes.IndirectLighting 0.35", "r.HeterogeneousVolumes.IndirectLighting.Mode 2",
             "r.HeterogeneousVolumes.SupportOverlappingVolumes 1"):
     unreal.SystemLibrary.execute_console_command(world, cmd)
+# Save the plume's own assets now (not the level). They are new packages: a level saved
+# on its own (Ctrl+S) kept the actor while closing the editor dropped the unsaved system,
+# and the plume came back with no system, showing nothing.
+unsaved = [p for p in (MASTER, MI, NS) if not EAL.save_asset(p, only_if_is_dirty=False)]
 loc = a.get_actor_location()
 print(f"GTB fluid smoke: {PLUME} at ({loc.x:.0f}, {loc.y:.0f}, {loc.z:.0f}), {MASTER.rsplit('/', 1)[1]} "
       f"{'rebuilt' if rebuilt else 'up to date'}, light {C['light_cd']} cd"
       + (f", hid {', '.join(hidden)}" if hidden else "")
-      + ". Unsaved: File > Save All to keep it. The fluid takes ~30 s to fill."
+      + (f". COULD NOT SAVE {unsaved}" if unsaved else ". Its assets are saved")
+      + "; the level isn't: File > Save All to keep the plume in it. The fluid takes ~30 s to fill."
       + (f" The sprite column is the alternative: python -m ue.fluid_smoke {D['capture']} --show sprites" if not SFX else ""))
 '''
 
@@ -341,33 +347,47 @@ D = json.loads(DATA)
 sub = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
 fluid = D["show"] == "fluid"
 found = {"fluid": 0, "sprites": 0}
-with unreal.ScopedEditorTransaction("GTB: generator smoke -> " + D["show"]):
-    for a in sub.get_all_level_actors():
-        tags, label = [str(t) for t in a.tags], a.get_actor_label()
-        kind = ("fluid" if "gtb_fluid_smoke" in tags or label.startswith(("GeneratorPlume", "GeneratorFireLight"))
-                else "sprites" if "gtb_plume" in tags or label.startswith("SmokeColumn") else None)
-        if kind is None:
-            continue
-        found[kind] += 1
-        on = (kind == "fluid") == fluid
-        a.modify()
-        for c in a.get_components_by_class(unreal.SceneComponent):
-            c.set_visibility(on)
-        nc = a.get_component_by_class(unreal.NiagaraComponent)
-        if nc:
-            if on:
-                nc.activate(True)                 # restarts empty: ~30 s to fill again
-            else:
-                nc.deactivate()                   # no simulation cost while hidden
-        a.set_actor_hidden_in_game(not on)
 cap = D["capture"]
-if not found[D["show"]]:
-    print("GTB generator smoke: nothing to show: " + (f"build the fluid first: python -m ue.fluid_smoke {cap}" if fluid
-          else f"the sprite column (SmokeColumnNN) comes from the level build: python gtb.py unreal {cap}"))
+
+
+def switch():
+    with unreal.ScopedEditorTransaction("GTB: generator smoke -> " + D["show"]):
+        for a in sub.get_all_level_actors():
+            tags, label = [str(t) for t in a.tags], a.get_actor_label()
+            kind = ("fluid" if "gtb_fluid_smoke" in tags or label.startswith(("GeneratorPlume", "GeneratorFireLight"))
+                    else "sprites" if "gtb_plume" in tags or label.startswith("SmokeColumn") else None)
+            if kind is None:
+                continue
+            found[kind] += 1
+            on = (kind == "fluid") == fluid
+            a.modify()
+            for c in a.get_components_by_class(unreal.SceneComponent):
+                c.set_visibility(on)
+            nc = a.get_component_by_class(unreal.NiagaraComponent)
+            if nc:
+                if on:
+                    nc.activate(True)                 # restarts empty: ~30 s to fill again
+                else:
+                    nc.deactivate()                   # no simulation cost while hidden
+            a.set_actor_hidden_in_game(not on)
+    if not found[D["show"]]:
+        print("GTB generator smoke: nothing to show: " + (f"build the fluid first: python -m ue.fluid_smoke {cap}" if fluid
+              else f"the sprite column (SmokeColumnNN) comes from the level build: python gtb.py unreal {cap}"))
+    else:
+        print(f"GTB generator smoke: showing the {'Niagara Fluids plume' if fluid else 'sprite column'} "
+              f"({found['fluid']} fluid / {found['sprites']} sprite actor(s)). Switch back: "
+              f"python -m ue.fluid_smoke {cap} --show {'sprites' if fluid else 'fluid'}. Unsaved: File > Save All to keep it.")
+
+
+# A plume whose Niagara system is gone (a level saved without its new assets) shows
+# nothing: main() rebuilds it instead of switching.
+broken = [a.get_actor_label() for a in sub.get_all_level_actors() if a.get_actor_label() == "GeneratorPlume"
+          and (a.get_component_by_class(unreal.NiagaraComponent) is None
+               or a.get_component_by_class(unreal.NiagaraComponent).get_asset() is None)]
+if fluid and broken:
+    print("GTB_REBUILD: " + ", ".join(broken) + " has no Niagara system")
 else:
-    print(f"GTB generator smoke: showing the {'Niagara Fluids plume' if fluid else 'sprite column'} "
-          f"({found['fluid']} fluid / {found['sprites']} sprite actor(s)). Switch back: "
-          f"python -m ue.fluid_smoke {cap} --show {'sprites' if fluid else 'fluid'}. Unsaved: File > Save All to keep it.")
+    switch()
 '''
 
 
@@ -379,7 +399,7 @@ def main():
                     help="move the copy (cm) away from the furnace, e.g. 0 1500 0")
     ap.add_argument("--remove", action="store_true", help="delete the copy named by --suffix")
     ap.add_argument("--show", choices=("fluid", "sprites"),
-                    help="switch which generator smoke is visible (no rebuild)")
+                    help="switch which generator smoke is visible (rebuilds a fluid plume whose system is missing)")
     args = ap.parse_args()
     cfg = config.load()
     cap = Path(args.capture)
@@ -387,8 +407,12 @@ def main():
         cap = Path(cfg.get("captures_dir") or ROOT / "captures") / args.capture
     if args.show:
         data = {"show": args.show, "capture": cap.name}
-        print(run(SHOW.replace("json.loads(DATA)", "json.loads(" + repr(json.dumps(data)) + ")"), cfg), end="")
-        return
+        out = run(SHOW.replace("json.loads(DATA)", "json.loads(" + repr(json.dumps(data)) + ")"), cfg)
+        if "GTB_REBUILD" not in out:
+            print(out, end="")
+            return
+        print("GTB generator smoke: " + out.split("GTB_REBUILD: ", 1)[1].strip() + "; rebuilding it")
+        args.suffix, args.offset, args.remove = "", (0.0, 0.0, 0.0), False
     params = None
     if not args.remove:
         plan = export(cap)
