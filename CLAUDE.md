@@ -39,5 +39,21 @@ Tested end to end on **Frostpunk 1** with Ninja Ripper 2.18 and Blender 5.2 (202
 ## Tuning loop
 Edit `captures/<name>/look.json`, then `python gtb.py render <capture> --save` (writes comparison.png + metrics) and `python gtb.py closeups <capture>`. `calibrate` matches exposure to the screenshot (log-average luminance, secant steps, best-of). Only structural changes (winding, material wiring) need `process`/`build` again.
 
+## Unreal (ue/, `gtb.py unreal*`)
+Tested with UE 5.8.3 on the same Frostpunk capture (2026-09-29): the game view is within 0.05 stops of Blender with both looks. The night look is within 0.03 stops of the screenshot, with no Unreal-specific calibration.
+- Flow: `ue/export.py` (manifest → plan.json + glb chunks, no Unreal needed) → `ue/blender_lut.py` (Blender bakes grade + AgX into a LUT) → `ue/editor/gtb_ue.py`, run by `UnrealEditor-Cmd -run=pythonscript` with `-nullrhi` → Movie Render Queue in `-game -RenderOffscreen` → `unreal/parity.png` (game | Blender | Unreal). A full build takes about 90 s, a look pass about 40 s, and a render about 30 s.
+- Material rules come from `gtb/scene_common.py` (shared with Blender). The master HLSL in `ue/editor/gtb_hlsl.py` mirrors the Blender node trees, and the snow noise is an exact port of Cycles' Perlin noise. Bump `MASTER_VERSION` in `gtb_materials.py` after changing a master.
+- Colour: the LUT pass runs *before* bloom (BL_SceneColorBeforeBloom). It outputs linear values, divided by EyeAdaptation, through a neutral tonemapper (Filmic with tone curve 0). **Do not use BL_ReplacingTonemapper.** MRQ captures linear (SCS_FinalToneCurveHDR) and re-applies sRGB itself, so a display-encoded replacement comes out twice as bright.
+- Units match Blender one to one: sun W/m² = lux, point light P W = P/(4π) cd, world colour = sky luminance. Height fog density = 10·d/ln(2)² with falloff ≈ 0 (from HeightFogCommon.ush).
+- UE Python gotchas:
+  - Commandlet prints don't reach stdout, so write a log file.
+  - Use forward slashes in the `-script=` path, because `\u...` gets eaten.
+  - A single-mesh glb is named after the file.
+  - `spawn_actor_from_object` returns None in the commandlet, so spawn StaticMeshActor by class instead.
+  - Coincident vertices make the mesh build quadratic.
+  - Sequencer keys are in ticks (display frame × 1000 at 24 fps).
+  - Git Bash rewrites `/Game/...` arguments; the pipeline calls Unreal from Python, so it isn't affected.
+- Known difference: Lumen occludes sky light with off-screen geometry, which EEVEE's screen-space GI can't. So the close-ups are up to ~0.4 stops darker than Blender's, while the game view matches. `look.unreal.cvars` can change render cvars.
+
 ## Checks
-`python tests/selftest.py` builds a synthetic rip and runs the whole pipeline (must print all PASS).
+`python tests/selftest.py` builds a synthetic rip and runs the whole pipeline (must print all PASS). It also checks the Unreal export (plan, glb, LUT) without Unreal.

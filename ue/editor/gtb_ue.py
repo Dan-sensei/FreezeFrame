@@ -308,7 +308,7 @@ def build_level(plan, cap_name, meshes, mis, look_mis, snow_mesh, defaults):
         n += 1
     log(f"level: {n} mesh actors")
 
-    cam = place_camera(plan["camera"], plan["camera"], "GameCamera")
+    place_camera(plan["camera"], plan["camera"], "GameCamera")
     for v in plan["closeups"]:
         place_camera(v, plan["camera"], v["name"])
 
@@ -342,6 +342,7 @@ def build_level(plan, cap_name, meshes, mis, look_mis, snow_mesh, defaults):
 
 def apply_look(look, plan, cap, look_mis, defaults):
     actors = by_label()
+    setp(actors["GameCamera"], "auto_activate_for_player", unreal.AutoReceiveInput.PLAYER0)   # Play = game view
     physical = look["sky"]["type"] != "color"
 
     # Colour pipeline: Blender's grade + view transform as a LUT.
