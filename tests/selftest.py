@@ -80,6 +80,21 @@ layer = {"a0": {"role": "albedo", "size": [2048, 2048], "file": "a0.png"},
 textures.detail_layers([("ps", {"0": f"a{i}", "4": "atlas"}) for i in range(3)] + [("pt", {"0": "bark", "2": "atlas"})], layer)
 bark_slots = assign_slots({"0": "bark", "2": "atlas"}, layer, {})
 rock_slots = assign_slots({"0": "a0", "4": "atlas"}, layer, {})
+# A particle layer process.py dropped as snowflakes (faint flipbook) is mist when its cards
+# are mist-sized (Frostpunk mesh_5273: 21 m cards, mean alpha 0.009); snowflake sheets
+# (mean alpha 0.0001) and small steam puffs stay hidden.
+def _cards(width, n=5):
+    q = np.array([[-0.5, -0.5, 0], [0.5, -0.5, 0], [0.5, 0.5, 0], [-0.5, 0.5, 0]]) * width
+    pos = np.concatenate([q + [30.0 * k, 0, 0] for k in range(n)]).astype(np.float32)
+    tris = np.concatenate([[[4 * k, 4 * k + 1, 4 * k + 2], [4 * k, 4 * k + 2, 4 * k + 3]] for k in range(n)])
+    return {"positions": pos, "indices": tris.ravel(), "uv0": np.zeros((len(pos), 2), np.float32)}
+_prof = {"sprite_layouts": ["POSITION0,COLOR0,TEXCOORD0"]}
+_fx = {"category": "effect", "layout_pre": ["POSITION0:0x3", "COLOR0:0x4", "TEXCOORD0:0x4"], "textures": {"0": "fb"}}
+_fb = lambda a: {"fb": {"role": "gray", "details": {"alpha_mean": a, "alpha_std": 0.06}}}
+mist_ok = (export.faint_mist(_fx, _cards(21.0), _fb(0.009), _prof, np.eye(3)) or [{}])[0].get("kind") == "mist"
+mist_ok &= export.faint_mist(_fx, _cards(21.0), _fb(0.0001), _prof, np.eye(3)) is None      # snowflake sheet
+mist_ok &= export.faint_mist(_fx, _cards(7.0), _fb(0.009), _prof, np.eye(3)) is None        # building steam
+mist_ok &= export.faint_mist(dict(_fx, category="surface"), _cards(21.0), _fb(0.009), _prof, np.eye(3)) is None
 checks.update({
     "materials: an all-zero roughness channel is not a mirror": packed_channels({"R": "Roughness"}, flat_r) == {}
     and packed_channels({"R": "Roughness"}, {"details": {"mean_rgb": [0.7, 0.5, 0.1]}}) == {"R": "Roughness"},
@@ -98,6 +113,7 @@ checks.update({
     "textures: an atlas bound with several albedos is a detail layer, not the base colour":
     layer["atlas"]["role"] == "detail" and all(layer[f"a{i}"]["role"] == "albedo" for i in range(3))
     and rock_slots["albedo"]["file"] == "a0.png" and bark_slots["albedo"]["file"] == "bark.png",
+    "unreal: a faint particle layer with mist-sized cards is mist, snowflakes and steam aren't": mist_ok,
 })
 checks.update({
     "import: capture.json from the rip": imp_meta.get("game_exe") == "Frostpunk.exe"

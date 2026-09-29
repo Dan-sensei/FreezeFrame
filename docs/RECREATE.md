@@ -92,7 +92,7 @@ python gtb.py unreal Frostpunk_20260929_115750
 
 The first ever run also compiles shaders and textures, which takes a few minutes more. Expected output:
 
-- `plan: {'surface': 1298, 'cloth': 44, 'effect': 719, 'sprite': 44, 'snowdrift': 241}, 112 materials, ... 384 game lights`. That is one more material than Blender's 111, because the ground-mist cards get their own (`MI_Sprite_mist_t0114`). `cloth` counts the red banners that flutter (they are also counted in `surface`). The export ray-casts each banner's clearance to the walls and frames around it, in a few seconds. `python -m ue.cloth_check Frostpunk_20260929_115750` must then print `0 banner(s) clip, 0 jerky, 4 barely move`.
+- `plan: {'surface': 1298, 'cloth': 44, 'effect': 716, 'sprite': 47, 'snowdrift': 241}, 112 materials, ... 384 game lights`. That is one more material than Blender's 111, because the ground-mist cards get their own (`MI_Sprite_mist_t0114`). The other mist materials replace ones Blender also has. The 3 extra sprites are mist layers that Blender keeps hidden (see step 6). `cloth` counts the red banners that flutter (they are also counted in `surface`). The export ray-casts each banner's clearance to the walls and frames around it, in a few seconds. `python -m ue.cloth_check Frostpunk_20260929_115750` must then print `0 banner(s) clip, 0 jerky, 4 barely move`.
 - The build takes about 60 s, with `smoke columns: 1` and `done (0 warnings)`.
 - `4 frame(s)` rendered by Movie Render Queue in about 25 s.
 - Night look: about 0.1 stops from the screenshot and from Blender's game view. Edge alignment against Blender is only 0.6–0.75, because the dense night snowfall uses different random flakes in each engine.
@@ -156,7 +156,11 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 - **Wood and metal:** the frosted planks of the banner stands, towers and building frames (`MI_M008`: colour `t0017`, normal `t0018`) are weathered grey-brown wood with frost. Green, orange or blue streaks mean a packed normal map is being used as colour; see step 8.
 - **Lights:** street lamps and building lights glow warm (384 game lights). The generator glows.
 - **Smoke:** chimney smoke sprites sit at the chimneys. Smoke puffs rise and fade in a loop in the Unreal editor. In Unreal, after step 4b, the generator has a billowing bluish-white fluid plume (`GeneratorPlume`). It rises out of the furnace with an orange glow at its base, and thins and lightens as it climbs. It rises straight, with no sideways drift and no hard edge. Without step 4b, or after `--show sprites`, it has the sprite column instead (`SmokeColumn00`): darker and denser, lit by the fire, with flames at its base. Blender's volumetric version (`smoke.enabled`) is off in both presets.
-- **Ground mist (Unreal):** the game's mist cards drift over the city in a slow loop. There are 8 meshes of soft 75–80 m cards (`mesh_5227`, `5235`, `5236`, `5239`, `5244`, `5270`–`5272`), using `MI_Sprite_mist_t0114` → `MI_Look_Mist`. They fade out near buildings, the ground and the camera, so no card cuts a hard line through anything. For more or less mist, change `look.unreal.mist.opacity`.
+- **Mist and haze (Unreal):** the game's mist cards drift in a slow loop, all through `MI_Look_Mist`. They fade out near buildings, the ground and the camera, so no card cuts a hard line through anything. For more or less mist, change `look.unreal.mist.opacity`.
+  - Ground mist over the city: 8 meshes of soft 75–80 m cards (`mesh_5227`, `5235`, `5236`, `5239`, `5244`, `5270`–`5272`, `MI_Sprite_mist_t0114`).
+  - Haze on the crater walls: `mesh_5266` (18–23 m cards, `MI_Sprite_mist_t0128`). It softens the blue ice walls, most visibly the lower-right wall seen from the game camera.
+  - Wind-blown haze over the ice east of the city (`mesh_5273`, `MI_Sprite_mist_t0105`) and wisps over the east crater wall (`mesh_5255`, `mesh_5268`, `MI_Sprite_mist_t0126`), both subtle. `process` drops these three as snowflakes, and the Unreal export brings them back as mist.
+  - Still hidden on purpose: the game's snowflake particles (the procedural snowfall replaces them), plus lamp glows, small flames and building steam, which have no Unreal look yet. The list is in `CLAUDE.md`, "What in the rip isn't the scene".
 - **Snowfall:** flakes fall around the camera in stills and in the animation.
 - **Banners (Unreal only):** the 44 red banners (`MI_M002` → `MI_Look_Cloth`) flutter in the snow's wind. Their top part stays still.
   - Free-hanging banners (like `mesh_1004`) swing downwind with a ripple running down them.
@@ -178,7 +182,7 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 | `ue/editor/` | Runs inside Unreal: master materials (`gtb_hlsl.py`, `gtb_materials.py`) and the level build (`gtb_ue.py`) |
 | `ue/pipeline.py` | Runs Unreal headless (commandlet, then Movie Render Queue) and writes the comparison sheets |
 | `ue/cloth_check.py` | Replays the banner flutter in numpy and reports banners that move into geometry |
-| `ue/live.py` | Pushes the banners or all material instances into the open editor (`cloth` / `materials`) |
+| `ue/live.py` | Pushes the banners, all material instances, the sprite column or the sprites into the open editor (`cloth` / `materials` / `plume` / `sprites`) |
 | `ue/fluid_smoke.py` | Builds the generator's Niagara Fluids smoke in the open editor ([GENERATOR_SMOKE.md](GENERATOR_SMOKE.md)) |
 | `ue/remote.py` | Runs a Python file inside an open Unreal editor, for live tweaks (needs Python Remote Execution turned on) |
 | `profiles/frostpunk.json`, `profiles/looks/` | Game profile, night and day looks |
@@ -192,6 +196,7 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 - **Lights hanging over empty snow** (e.g. `GL0011`): the game's own fill lights, with no visible fixture. The user chose to keep them.
 - **Big snow-coloured cubes on the cliff tops:** deferred decal volumes drawn as solid boxes. `scene_common.decal_volume` hides them in `process` and in the export, and `python -m ue.live materials <capture>` hides them in an open editor.
 - **Blotchy black-and-white strips or a snow ring floating far away:** geometry from another render pass, placed 0.7–2 km under the city. `scene_common.below_scene` hides it. For a capture processed before that rule, the Unreal export hides it anyway, and `python -m ue.live materials <capture>` hides it in an open editor.
+- **No haze on the crater walls or over the ice, or `mesh_5273`, `mesh_5255` and `mesh_5268` sit in "Effects (hidden)" in the editor:** the level was built before the mist rules (2026-09-30). With the editor open, run `python -m ue.live sprites <capture>`: it re-imports those three meshes as sprites and moves all four to the mist look. The Content Browser then jumps to `SM_01646_mesh_5273_5273`; that's expected. Undo reverts it, and File → Save All keeps it. A fresh `gtb.py unreal` builds them directly.
 - **Unreal step fails:** read `captures/<name>/unreal/build.log`, then `build_engine.log`. For renders, read `render_stills_engine.log`.
 - **Unreal colours about a stop too bright or washed out:** the colour pass must stay before the tonemapper. See the Unreal section of `CLAUDE.md`.
 - **No generator smoke after step 4b:** give it 60–90 s if the editor isn't in focus. Then check that the sky dome has no collision (the script sets its profile to `NoCollision`) and that the three plugins are enabled. See [GENERATOR_SMOKE.md](GENERATOR_SMOKE.md), Pitfalls.

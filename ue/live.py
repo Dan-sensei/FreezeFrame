@@ -5,8 +5,10 @@ the editor closed. Changes go into one undo transaction and stay unsaved.
     python -m ue.live cloth <capture>       banners: M_GTB_Cloth, MI_Look_Cloth, each banner's room
     python -m ue.live materials <capture>   every material instance, texture import kind and actor's material
     python -m ue.live plume <capture>       the smoke column: M_GTB_Plume and MI_Look_Plume from look.json
+    python -m ue.live sprites <capture>     sprites (smoke, fire, mist): meshes the editor has without
+                                            billboard data (e.g. once hidden effects), then `materials`
 
-Both re-export the capture's Unreal plan first, so the editor gets what the
+All re-export the capture's Unreal plan first, so the editor gets what the
 code produces now. The capture's level must be the one open in the editor.
 `cloth` rebuilds the master from ue/editor and checks that it compiles:
 MaterialEditingLibrary.get_statistics compiles synchronously and reports 0
@@ -79,14 +81,7 @@ with unreal.ScopedEditorTransaction("GTB: banners"):
     print(f"GTB live: {len(D['materials'])} banner material(s), room on {n} of {len(D['room'])} banner(s)")
 '''
 
-PLUME = r'''
-import sys, importlib, json, unreal
-D = json.loads(DATA)
-sys.path.insert(0, D["editor_dir"])
-import gtb_hlsl, gtb_materials
-importlib.reload(gtb_hlsl); importlib.reload(gtb_materials)
-MEL, EAL = unreal.MaterialEditingLibrary, unreal.EditorAssetLibrary
-SHARED, CAP = "/Game/GTB/Shared", D["content"]
+MESH_OPTIONS = r'''
 def mesh_options():                                  # as gtb_ue.mesh_import_options
     p = unreal.InterchangeGenericAssetsPipeline()
     c = p.get_editor_property("common_meshes_properties")
@@ -104,6 +99,17 @@ def mesh_options():                                  # as gtb_ue.mesh_import_opt
     stack = unreal.InterchangePipelineStackOverride()
     stack.add_pipeline(p)
     return stack
+'''
+
+PLUME = r'''
+import sys, importlib, json, unreal
+D = json.loads(DATA)
+sys.path.insert(0, D["editor_dir"])
+import gtb_hlsl, gtb_materials
+importlib.reload(gtb_hlsl); importlib.reload(gtb_materials)
+MEL, EAL = unreal.MaterialEditingLibrary, unreal.EditorAssetLibrary
+SHARED, CAP = "/Game/GTB/Shared", D["content"]
+''' + MESH_OPTIONS + r'''
 with unreal.ScopedEditorTransaction("GTB: smoke column"):
     if D.get("glb"):                                 # the puffs (count, frames) come from the export
         t = unreal.AssetImportTask()
@@ -134,6 +140,49 @@ with unreal.ScopedEditorTransaction("GTB: smoke column"):
         else:
             MEL.set_material_instance_scalar_parameter_value(look, k, float(v))
     print("GTB live: MI_Look_Plume set:", sorted(D["params"]))
+'''
+
+# A sprite re-faces its cards to the camera from 7 UV channels (see export: puff centre,
+# corner, texture axes, phase). A mesh the editor imported as a hidden effect has 1, so
+# it is re-imported from its own .glb (export solo=True); the asset keeps its name, so
+# the actor keeps it. Bounds and shadows as gtb_ue does for the Particles folder.
+SPRITES = r'''
+import json, unreal
+D = json.loads(DATA)
+EAL = unreal.EditorAssetLibrary
+SMES = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+CAP = D["content"]
+''' + MESH_OPTIONS + r'''
+todo = []
+for name, (asset, glb) in D["sprites"].items():
+    sm = EAL.load_asset(f"{CAP}/Meshes/{asset}")
+    if sm is None or SMES.get_num_uv_channels(sm, 0) < 7:
+        todo.append(name)
+with unreal.ScopedEditorTransaction("GTB: sprites"):
+    tasks = []
+    for name in todo:
+        t = unreal.AssetImportTask()
+        t.set_editor_properties({"filename": D["sprites"][name][1], "destination_path": f"{CAP}/Meshes",
+                                 "automated": True, "save": False, "replace_existing": True, "options": mesh_options()})
+        tasks.append(t)
+    if tasks:
+        unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks(tasks)
+    bad = []
+    for name, (asset, glb) in D["sprites"].items():
+        sm = EAL.load_asset(f"{CAP}/Meshes/{asset}")
+        if sm is None or SMES.get_num_uv_channels(sm, 0) < 7:
+            bad.append(name)
+            continue
+        if name in todo:
+            sm.modify()
+            sm.set_editor_property("positive_bounds_extension", unreal.Vector(2000, 2000, 5000))
+            sm.set_editor_property("negative_bounds_extension", unreal.Vector(2000, 2000, 2000))
+    for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors():
+        if a.get_actor_label() in D["sprites"] and isinstance(a, unreal.StaticMeshActor) and a.static_mesh_component.cast_shadow:
+            a.static_mesh_component.modify()
+            a.static_mesh_component.set_cast_shadow(False)
+print(f"GTB live: {len(D['sprites'])} sprite(s), {len(todo)} re-imported with billboard data"
+      + (f"; STILL WITHOUT IT: {bad}" if bad else ""))
 '''
 
 MATERIALS = r'''
@@ -219,13 +268,13 @@ def _send(template, data):
 
 
 def main():
-    if len(sys.argv) != 3 or sys.argv[1] not in ("cloth", "materials", "plume"):
+    if len(sys.argv) != 3 or sys.argv[1] not in ("cloth", "materials", "plume", "sprites"):
         sys.exit(__doc__)
     cfg = config.load()
     cap = Path(sys.argv[2])
     if not cap.exists():
         cap = Path(cfg.get("captures_dir") or ROOT / "captures") / sys.argv[2]
-    plan = export(cap)
+    plan = export(cap, solo=sys.argv[1] == "sprites")
     base = {"content": f"/Game/GTB/{cap.name}", "editor_dir": str(ROOT / "ue" / "editor"),
             "textures_dir": plan["textures_dir"]}
     if sys.argv[1] == "plume":
@@ -235,7 +284,10 @@ def main():
                                      "Drift", "SmokeColor", "GlowColor", "ShadowColor")}
         print(_send(PLUME, dict(base, params=params, glb=(plan.get("plume") or {}).get("glb"))), end="")
         return
-    if sys.argv[1] == "materials":
+    if sys.argv[1] == "sprites":
+        mesh = {a["name"]: a["mesh"] for a in plan["actors"]}
+        print(_send(SPRITES, dict(base, sprites={n: (mesh[n], g) for n, g in plan["solo_glbs"].items()})), end="")
+    if sys.argv[1] in ("materials", "sprites"):
         print(_send(MATERIALS, dict(base, textures=plan["textures"], materials=plan["materials"],
                                     actors={a["name"]: (a["material"], bool(a.get("hidden")), a.get("folder", "Geometry"))
                                             for a in plan["actors"] if a.get("material")})), end="")

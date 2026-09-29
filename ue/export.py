@@ -19,6 +19,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+from gtb.process import sprite_attributes  # noqa: E402
 from gtb.scene_common import (assign_slots, below_scene, decal_volume, overlay_layer, packed_channels,  # noqa: E402
                                scene_floor, srgb_to_linear)
 from ue.gltf import GlbWriter, blender_to_gltf  # noqa: E402
@@ -450,7 +451,39 @@ def write_snowfall(path: Path, count=SNOW_MAX_FLAKES, seed=1):
     w.save(path)
 
 
-MIST_CARD_M = 40.0      # smoke sprite cards at least this wide (m) are ground mist
+# Smoke sprite cards at least this wide (m) are mist, not puffs. Frostpunk: the ground
+# mist's cards are 75-80 m, the haze on the crater walls (mesh_5266) 23 m, the wind-blown
+# haze and wisps 21-27 m; the biggest chimney puffs are 12 m.
+MIST_CARD_M = 16.0
+# process.py drops particle draws with a nearly empty flipbook as snowflakes (the
+# procedural snowfall replaces them). Frostpunk's snowflake sheets (t0124/t0127) have a
+# mean alpha of 0.0001; the faint mist flipbooks it also dropped have 0.009-0.018.
+SPECK_ALPHA = 0.001
+
+
+def card_width(corner):
+    """Median sprite card width (m), from the corner offsets in the camera plane."""
+    return 2.0 * float(np.median(np.abs(corner).max(1)))
+
+
+def faint_mist(m, data, textures, profile, cam_axes):
+    """A particle effect process.py dropped as snowflakes that is really a mist layer:
+    its flipbook is faint rather than empty, and its cards are mist-sized. Frostpunk:
+    mesh_5273 (wind-blown haze over the ice) and mesh_5255/5268 (wisps over the east
+    crater wall). Returns (sprite info, billboard attributes) or None."""
+    layout = ",".join(a.split(":")[0] for a in m.get("layout_pre", []))
+    if m.get("category") != "effect" or layout not in profile.get("sprite_layouts", []) or "uv0" not in data:
+        return None
+    cands = [t for t in (m.get("textures") or {}).values() if "alpha_mean" in (textures.get(t) or {}).get("details", {})]
+    if not cands:
+        return None
+    atlas = max(cands, key=lambda t: textures[t]["details"]["alpha_std"])       # as process.sprite_info
+    if textures[atlas]["details"]["alpha_mean"] < SPECK_ALPHA:
+        return None
+    attrs = sprite_attributes(data["positions"], data["indices"].reshape(-1, 3), cam_axes)
+    if card_width(attrs["attr_p_corner"]) < MIST_CARD_M:
+        return None
+    return {"kind": "mist", "atlas": atlas}, attrs
 
 
 def write_plume(path: Path, frames, count=320, seed=7):
@@ -484,7 +517,9 @@ def write_plume(path: Path, frames, count=320, seed=7):
 
 # --------------------------------------------------------------------------- main
 
-def export(capture: Path):
+def export(capture: Path, solo=False):
+    """solo: also write every sprite to its own .glb (meshes/solo/<asset>.glb, listed
+    in plan["solo_glbs"]), so `ue.live sprites` can re-import one without its chunk."""
     capture = Path(capture)
     manifest = json.loads((capture / "manifest.json").read_text(encoding="utf-8"))
     profile = manifest.get("profile", {})
@@ -493,8 +528,13 @@ def export(capture: Path):
     out = capture / "unreal"
     mesh_dir = out / "meshes"
     mesh_dir.mkdir(parents=True, exist_ok=True)
-    for old in mesh_dir.glob("*.glb"):
+    for old in list(mesh_dir.glob("*.glb")) + list(mesh_dir.glob("solo/*.glb")):
         old.unlink()
+    if solo:
+        (mesh_dir / "solo").mkdir(exist_ok=True)
+    solo_glbs = {}
+    cam_m = np.array(manifest["camera"]["matrix_world"], dtype=np.float64)
+    cam_axes = cam_m[:3, :3] / np.linalg.norm(cam_m[:3, :3], axis=0)     # game camera right/up/back, world
 
     chunks = ChunkedGlb(mesh_dir, "geo")
     materials, used_textures, actors = {}, {}, []
@@ -544,13 +584,17 @@ def export(capture: Path):
         actor = {"name": m["name"], "mesh": name, "location": r3(to_ue(centre_b), 3),
                  "source": m.get("source", ""), "hidden": False, "cast_shadow": True}
 
-        if m.get("category") == "sprite" and m.get("sprite"):
-            sp = m["sprite"]
-            # The game's ground mist is smoke sprites on huge cards (Frostpunk: 322 soft
-            # blobs, 75-80 m wide; the biggest puffs are ~23 m). It gets its own look
-            # (MI_Look_Mist): more opacity, a long soft fade into geometry, a near fade.
+        promoted = faint_mist(m, data, textures, profile, cam_axes)
+        if promoted:
+            data.update(promoted[1])
+        if (m.get("category") == "sprite" and m.get("sprite")) or promoted:
+            sp = promoted[0] if promoted else m["sprite"]
+            # The game's mist and haze are smoke sprites on big cards (Frostpunk: the ground
+            # mist's 322 soft blobs, 75-80 m wide, and the haze layers; see MIST_CARD_M). They
+            # get their own look (MI_Look_Mist): more opacity, a long soft fade into geometry
+            # (no hard lines through buildings), a near fade.
             kind = sp["kind"]
-            if kind == "smoke" and "attr_p_corner" in data and                     2.0 * float(np.median(np.abs(data["attr_p_corner"]).max(1))) >= MIST_CARD_M:
+            if kind == "smoke" and "attr_p_corner" in data and card_width(data["attr_p_corner"]) >= MIST_CARD_M:
                 kind = "mist"
             key = f"sprite|{kind}|{sp['atlas']}"
             if key not in materials:
@@ -578,7 +622,8 @@ def export(capture: Path):
             kw["normals"] = blender_to_gltf(smooth_normals(pos_b, tris))
             actor.update(cast_shadow=False, folder="Particles")
             counts["sprite"] += 1
-            surfaces_for_ray.append((pos_b, tris))   # Blender's close-up ray hits sprites too
+            if not promoted:                         # Blender's close-up ray hits its sprites too
+                surfaces_for_ray.append((pos_b, tris))
         else:
             tex_entries = [textures[t] for t in m.get("textures", {}).values() if t in textures]
             kw["normals"] = blender_to_gltf(data["normals"] if "normals" in data else smooth_normals(pos_b, tris))
@@ -629,6 +674,11 @@ def export(capture: Path):
         kw["uvs"] = uv_list
         actor["material"] = materials[key]["name"]
         actor["glb"] = chunks.add(name, len(tris), **kw)
+        if solo and actor.get("folder") == "Particles":
+            w = GlbWriter()
+            w.add_mesh(name, **kw)
+            w.save(mesh_dir / "solo" / f"{name}.glb")    # single-mesh file: the asset is named after it
+            solo_glbs[m["name"]] = str((mesh_dir / "solo" / f"{name}.glb").resolve())
         actors.append(actor)
     chunks.flush()
     write_snowfall(out / "SM_Snowfall.glb")
@@ -698,6 +748,8 @@ def export(capture: Path):
         "plume": plume,
         "counts": counts,
     }
+    if solo:
+        plan["solo_glbs"] = solo_glbs
     (out / "plan.json").write_text(json.dumps(plan, indent=1), encoding="utf-8")
     print(f"[ue] plan: {counts}, {len(materials)} materials, {len(used_textures)} textures, "
           f"{len(chunks.files)} glb chunks, {len(lights)} game lights")
