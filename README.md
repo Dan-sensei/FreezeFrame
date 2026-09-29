@@ -113,9 +113,11 @@ The build reads `manifest.json` directly, so Unreal makes the same decisions as 
 - **Materials** follow the same rules as Blender. Albedo alpha is a cut-out mask. A+G normals carry R as roughness. Roof snow goes on up-facing surfaces, using a port of Blender's noise so the patches match. Snow drifts get the snow material, and untextured terrain gets a flat colour. All per-look values live on one material instance per master, `MI_Look_*`.
 - **Lighting** comes from `look.json` in the same units as Blender. The sun becomes a directional light and the sky a flat sky light plus a dome. Depth fog becomes an exponential height fog, converted exactly. The 384 game lights become point lights (P / 4π candela).
 - **Colour**: Blender bakes its own grade and AgX look into a 3D LUT. A post-process material that replaces Unreal's tonemapper applies it, so the same `look.json` produces the same colours.
-- **Smoke and fire sprites** are re-faced to the camera by their material. **Snowfall** is 100k flake quads placed by the material from time and camera, like the Blender geometry nodes. Both are driven by a time parameter that the Level Sequence animates, so stills are repeatable and scrubbing works.
+- **Smoke and fire sprites** are re-faced to the camera by their material. **Snowfall** is 100k flake quads placed by the material from time and camera, like the Blender geometry nodes. Both are driven by a time parameter that the Level Sequence animates, so stills are repeatable and scrubbing works. In the editor viewport the snow keeps falling, but smoke and fire only drift upward while `LS_Anim` plays or is scrubbed; otherwise they stay where the game drew them.
 - **Cameras**: `GameCamera` is a CineCameraActor with the solved FOV. `Closeup35`, `Closeup15` and `CloseupLow` are the same check views as `gtb.py closeups`.
 - **Sequences**: `Render/LS_Anim` is the 250-frame animation and `Render/LS_Stills` holds the four stills, with matching `MRQ_*` render configs.
+
+Close the Unreal editor before running `unreal` or `unreal-look`: they save the level and assets, and they refuse to run while an editor has the project open.
 
 Other commands:
 

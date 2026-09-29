@@ -53,6 +53,8 @@ Tested with UE 5.8.3 on the same Frostpunk capture (2026-09-29): the game view i
   - Coincident vertices make the mesh build quadratic.
   - Sequencer keys are in ticks (display frame × 1000 at 24 fps).
   - Git Bash rewrites `/Game/...` arguments; the pipeline calls Unreal from Python, so it isn't affected.
+- Time: effects use `MPC_GTB_Time`. `SceneTime` is keyed by the sequences. `EngineTimeWeight` is 1 outside Sequencer, so the editor viewport animates. Anything that accumulates, like smoke rise, must use `SceneTime` only: the editor clock grows without limit, and sprites once ended up hundreds of metres up in the sky. Snowfall wraps, so engine time is safe for it.
+- Never write to the Unreal project while the user has it open in the editor. `run_editor` refuses to, and for experiments you can point `cfg["unreal_project"]` at a scratch copy.
 - Known difference: Lumen occludes sky light with off-screen geometry, which EEVEE's screen-space GI can't. So the close-ups are up to ~0.4 stops darker than Blender's, while the game view matches. `look.unreal.cvars` can change render cvars.
 
 ## Checks

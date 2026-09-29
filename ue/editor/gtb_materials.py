@@ -15,7 +15,7 @@ F1, F2, F3, F4 = (unreal.CustomMaterialOutputType.CMOT_FLOAT1, unreal.CustomMate
                   unreal.CustomMaterialOutputType.CMOT_FLOAT3, unreal.CustomMaterialOutputType.CMOT_FLOAT4)
 
 # Bump when a master graph changes: existing masters are rebuilt in place.
-MASTER_VERSION = "5"
+MASTER_VERSION = "6"
 
 
 class Graph:
@@ -65,6 +65,13 @@ class Graph:
         tm = self.node(unreal.MaterialExpressionTime)
         return self.custom("return SceneTime + Weight * EngineTime;",
                            {"SceneTime": st, "Weight": w, "EngineTime": tm}, F1, desc="GTB Time")
+
+    def sequence_time(self):
+        """Level Sequence time only (0 outside Sequencer): for motion that must not
+        accumulate while the editor runs, like smoke drifting upward."""
+        st = self.node(unreal.MaterialExpressionCollectionParameter, collection=self.mpc)
+        st.set_editor_property("parameter_name", "SceneTime")
+        return st
 
     def custom(self, code, inputs, out_type, outputs=None, desc="GTB"):
         c = self.node(unreal.MaterialExpressionCustom, x=-300)
@@ -170,7 +177,7 @@ def build_snowdrift(mat, defaults, mpc):
 def _sprite_wpo(g):
     wpo = g.custom(hlsl.SPRITE_WPO, {
         "D1": g.texcoord(1), "D2": g.texcoord(2), "Corner": g.texcoord(3),
-        "CamR": g.view_axis(1, 0, 0), "CamU": g.view_axis(0, 1, 0), "T": g.time(),
+        "CamR": g.view_axis(1, 0, 0), "CamU": g.view_axis(0, 1, 0), "T": g.sequence_time(),
         "Rise": g.scalar("Rise", 60.0, "Look"), "Billboard": g.scalar("Billboard", 1.0, "Look"),
     }, F3, desc="GTB Billboard")
     g.out(wpo, "", MP.MP_WORLD_POSITION_OFFSET)

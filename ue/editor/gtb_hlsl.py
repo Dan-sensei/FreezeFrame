@@ -197,6 +197,8 @@ return DriftColor.rgb;
 
 # billboard_node_group: re-face each puff to the rendering camera and drift up.
 # UV1.xy/UV2.x: vertex -> puff centre; UV3: corner along the game camera's right/up.
+# T is the Level Sequence's time only: with the editor's ever-growing engine clock
+# the puffs would float hundreds of metres up.
 SPRITE_WPO = r"""
 float3 off = float3(0.0, 0.0, Rise * T);
 if (Billboard > 0.5)

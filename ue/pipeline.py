@@ -118,8 +118,22 @@ def write_look(cfg, cap):
     return look, ul
 
 
+def editor_has_project_open(proj):
+    """Unreal editors (not our own commandlets) that have this project loaded."""
+    ps = ("Get-CimInstance Win32_Process -Filter \"Name like 'UnrealEditor%'\" | "
+          "ForEach-Object { $_.CommandLine }")
+    r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True,
+                       encoding="utf-8", errors="replace")
+    want = str(Path(proj).resolve()).replace("\\", "/").lower()
+    return [line for line in r.stdout.splitlines()
+            if want in line.replace("\\", "/").lower() and "-run=pythonscript" not in line.lower()]
+
+
 def run_editor(cfg, cap, action):
     proj, shared = ensure_project(cfg)
+    if editor_has_project_open(proj):
+        sys.exit(f"[ue] the Unreal editor has {proj.name} open; close it first (this step saves the level "
+                 f"and assets the editor has loaded), then run the command again")
     ue = find_unreal(cfg)
     udir = cap / "unreal"
     log = udir / f"{action}.log"
