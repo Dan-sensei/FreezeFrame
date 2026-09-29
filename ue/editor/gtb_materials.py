@@ -15,7 +15,7 @@ F1, F2, F3, F4 = (unreal.CustomMaterialOutputType.CMOT_FLOAT1, unreal.CustomMate
                   unreal.CustomMaterialOutputType.CMOT_FLOAT3, unreal.CustomMaterialOutputType.CMOT_FLOAT4)
 
 # Bump when a master graph changes: existing masters are rebuilt in place.
-MASTER_VERSION = "6"
+MASTER_VERSION = "7"
 
 
 class Graph:
@@ -72,6 +72,17 @@ class Graph:
         st = self.node(unreal.MaterialExpressionCollectionParameter, collection=self.mpc)
         st.set_editor_property("parameter_name", "SceneTime")
         return st
+
+    def engine_weight(self):
+        """1 outside Sequencer (editor, Play), 0 while a GTB sequence evaluates."""
+        w = self.node(unreal.MaterialExpressionCollectionParameter, collection=self.mpc)
+        w.set_editor_property("parameter_name", "EngineTimeWeight")
+        return w
+
+    def loop_inputs(self):
+        """Inputs of gtb_hlsl.LOOP_FADE (editor-preview loop of the game's sprites)."""
+        return {"Phase": self.texcoord(6), "TAll": self.time(), "W": self.engine_weight(),
+                "LoopSeconds": self.scalar("LoopSeconds", 6.0, "Look")}
 
     def custom(self, code, inputs, out_type, outputs=None, desc="GTB"):
         c = self.node(unreal.MaterialExpressionCustom, x=-300)
@@ -175,11 +186,11 @@ def build_snowdrift(mat, defaults, mpc):
 
 
 def _sprite_wpo(g):
-    wpo = g.custom(hlsl.SPRITE_WPO, {
+    wpo = g.custom(hlsl.SPRITE_WPO, dict({
         "D1": g.texcoord(1), "D2": g.texcoord(2), "Corner": g.texcoord(3),
-        "CamR": g.view_axis(1, 0, 0), "CamU": g.view_axis(0, 1, 0), "T": g.sequence_time(),
+        "CamR": g.view_axis(1, 0, 0), "CamU": g.view_axis(0, 1, 0), "TSeq": g.sequence_time(),
         "Rise": g.scalar("Rise", 60.0, "Look"), "Billboard": g.scalar("Billboard", 1.0, "Look"),
-    }, F3, desc="GTB Billboard")
+    }, **g.loop_inputs()), F3, desc="GTB Billboard")
     g.out(wpo, "", MP.MP_WORLD_POSITION_OFFSET)
 
 
@@ -190,14 +201,14 @@ def build_smoke(mat, defaults, mpc):
            tangent_space_normal=False)
     g = Graph(mat, mpc)
     vc = g.node(unreal.MaterialExpressionVertexColor)
-    c = g.custom(hlsl.SMOKE, {
+    c = g.custom(hlsl.SMOKE, dict(g.loop_inputs(), **{
         "UV": g.texcoord(0), "Tan": g.texcoord(4), "Bit": g.texcoord(5), "VColorA": (vc, "A"),
         "Atlas": g.texture("Atlas", defaults["linear"]),
         "CamR": g.view_axis(1, 0, 0), "CamU": g.view_axis(0, 1, 0), "CamF": g.view_axis(0, 0, 1),
         "Opacity": g.scalar("Opacity", 0.7, "Look"), "NormalStrength": g.scalar("NormalStrength", 1.0, "Look"),
         "SmokeColor": g.vector("SmokeColor", (0.45, 0.48, 0.57, 1), "Look"),
-        "Ambient": g.scalar("Ambient", 0.25, "Look"), "Translucency": g.scalar("Translucency", 0.6, "Look"),
-    }, F3, {"Alpha": F1, "WorldN": F3, "Emis": F3}, desc="GTB Smoke")
+        "Ambient": g.scalar("Ambient", 0.25, "Look"),
+    }), F3, {"Alpha": F1, "WorldN": F3, "Emis": F3}, desc="GTB Smoke")
     g.out(c, "", MP.MP_BASE_COLOR)
     g.out(c, "Alpha", MP.MP_OPACITY)
     g.out(c, "WorldN", MP.MP_NORMAL)
@@ -213,13 +224,48 @@ def build_fire(mat, defaults, mpc):
            shading_model=unreal.MaterialShadingModel.MSM_UNLIT)
     g = Graph(mat, mpc)
     vc = g.node(unreal.MaterialExpressionVertexColor)
-    c = g.custom(hlsl.FIRE, {
+    c = g.custom(hlsl.FIRE, dict(g.loop_inputs(), **{
         "UV": g.texcoord(0), "VColorA": (vc, "A"), "Atlas": g.texture("Atlas", defaults["color"]),
         "Opacity": g.scalar("Opacity", 0.7, "Look"), "FireStrength": g.scalar("FireStrength", 6.0, "Look"),
-    }, F3, {"Alpha": F1}, desc="GTB Fire")
+    }), F3, {"Alpha": F1}, desc="GTB Fire")
     g.out(c, "", MP.MP_EMISSIVE_COLOR)
     g.out(c, "Alpha", MP.MP_OPACITY)
     _sprite_wpo(g)
+
+
+def build_plume(mat, defaults, mpc):
+    _reset(mat, two_sided=True, blend_mode=unreal.BlendMode.BLEND_TRANSLUCENT,
+           shading_model=unreal.MaterialShadingModel.MSM_DEFAULT_LIT,
+           translucency_lighting_mode=unreal.TranslucencyLightingMode.TLM_SURFACE_PER_PIXEL_LIGHTING,
+           tangent_space_normal=False)
+    g = Graph(mat, mpc)
+    t = g.time()
+    p1, cam_r, cam_u = g.texcoord(1), g.view_axis(1, 0, 0), g.view_axis(0, 1, 0)
+    period = g.scalar("Period", 30.0, "Look")
+    wpo = g.custom(hlsl.PLUME_WPO, {
+        "P1": p1, "P2": g.texcoord(2), "Corner": g.texcoord(3), "CamR": cam_r, "CamU": cam_u, "T": t,
+        "Base": g.node(unreal.MaterialExpressionObjectPositionWS),
+        "WorldPos": g.node(unreal.MaterialExpressionWorldPosition),
+        "Period": period, "Height": g.scalar("Height", 8000.0, "Look"), "Grow": g.scalar("Grow", 0.0007, "Look"),
+        "Drift": g.vector("Drift", (0.2, 0.0, 0.0, 0.0), "Look"),
+        "Radius": g.scalar("Radius", 400.0), "Column": g.scalar("Column", 0.0),
+    }, F3, desc="GTB Plume motion")
+    g.out(wpo, "", MP.MP_WORLD_POSITION_OFFSET)
+    vc = g.node(unreal.MaterialExpressionVertexColor)
+    c = g.custom(hlsl.PLUME, {
+        "UV": g.texcoord(0), "P1": p1, "VColorA": (vc, "A"), "T": t, "Period": period,
+        "Atlas": g.texture("Atlas", defaults["linear"]), "CamR": cam_r, "CamU": cam_u, "CamF": g.view_axis(0, 0, 1),
+        "Opacity": g.scalar("Opacity", 0.6, "Look"), "NormalStrength": g.scalar("NormalStrength", 1.0, "Look"),
+        "SmokeColor": g.vector("SmokeColor", (0.33, 0.34, 0.38, 1), "Look"), "Ambient": g.scalar("Ambient", 0.25, "Look"),
+        "GlowColor": g.vector("GlowColor", (1.0, 0.38, 0.14, 1), "Look"), "Glow": g.scalar("Glow", 1.5, "Look"),
+    }, F3, {"Alpha": F1, "WorldN": F3, "Emis": F3}, desc="GTB Plume")
+    g.out(c, "", MP.MP_BASE_COLOR)
+    g.out(c, "Alpha", MP.MP_OPACITY)
+    g.out(c, "WorldN", MP.MP_NORMAL)
+    g.out(c, "Emis", MP.MP_EMISSIVE_COLOR)
+    for name, v in (("Roughness", 1.0), ("Specular", 0.0)):
+        k = g.node(unreal.MaterialExpressionConstant, r=v)
+        g.out(k, "", getattr(MP, f"MP_{name.upper()}"))
 
 
 def build_snowfall(mat, defaults, mpc):
@@ -282,6 +328,7 @@ MASTERS = {
     "snowdrift": ("M_GTB_SnowDrift", build_snowdrift),
     "smoke": ("M_GTB_Smoke", build_smoke),
     "fire": ("M_GTB_Fire", build_fire),
+    "plume": ("M_GTB_Plume", build_plume),
     "snowfall": ("M_GTB_Snowfall", build_snowfall),
     "sky": ("M_GTB_Sky", build_sky),
     "tonemap": ("PP_GTB_Tonemap", build_tonemap),

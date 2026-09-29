@@ -12,6 +12,8 @@ Keys under look["unreal"] only affect Unreal; Blender ignores them:
   bloom_intensity / bloom_threshold   override the mapped bloom
   warmup_frames, temporal_samples     Movie Render Queue quality
   cvars            console variables for Movie Render Queue renders, e.g. {"r.Lumen.ScreenProbeGather.DownsampleFactor": 8}
+  smoke_loop_seconds   editor preview loop of the game's smoke puffs (0 = static)
+  plume            smoke column: {enabled, speed (m/s), glow (furnace light), wind_drift}
 """
 import math
 
@@ -22,7 +24,12 @@ from ue.export import CM, dir_to_ue, to_ue
 
 LUT_SIZE, LUT_LO, LUT_HI = 64, -12.0, 8.0
 UNREAL_DEFAULTS = {"exposure_offset": 0.0, "bloom_intensity": None, "bloom_threshold": None,
-                   "warmup_frames": 64, "temporal_samples": 8, "anim_frames": 250, "fps": 24, "cvars": {}}
+                   "warmup_frames": 64, "temporal_samples": 8, "anim_frames": 250, "fps": 24, "cvars": {},
+                   # Editor/Play preview: the game's smoke puffs rise and fade in loops of this length.
+                   "smoke_loop_seconds": 6.0,
+                   # Smoke columns (e.g. the generator's), built from the game's smoke flipbook.
+                   # Height/grow/colour/density come from look.smoke like Blender's volumetric plume.
+                   "plume": {"enabled": True, "speed": 3.0, "glow": 1.5, "wind_drift": 0.35}}
 
 
 def lut_key(look):
@@ -60,6 +67,7 @@ def rl(v, nd=5):
 
 def ue_look(look, plan, lut_path):
     u = dict(UNREAL_DEFAULTS, **(look.get("unreal") or {}))
+    u["plume"] = dict(UNREAL_DEFAULTS["plume"], **((look.get("unreal") or {}).get("plume") or {}))
     s = look["sun"]
     az, el = math.radians(s["azimuth"]), math.radians(s["elevation"])
     to_sun = np.array([math.sin(az) * math.cos(el), math.cos(az) * math.cos(el), math.sin(el)])
@@ -114,10 +122,11 @@ def ue_look(look, plan, lut_path):
         "lights": [_extra_light(L) for L in look.get("lights", [])],
         "particles": {"enabled": parts["enabled"], "Opacity": parts["opacity"],
                       "Billboard": 1.0 if parts["billboard"] else 0.0, "Rise": parts["rise"] * CM,
-                      "Translucency": parts["translucency"], "Ambient": parts["ambient"],
+                      "Ambient": parts["ambient"], "LoopSeconds": u["smoke_loop_seconds"],
                       "NormalStrength": parts["normal_strength"], "FireStrength": parts["fire_strength"],
                       "SmokeColor": srgb_to_linear(parts["smoke_color"]) + [1.0]},
         "snow": _snow(snow, plan),
+        "plume": _plume(look, u["plume"], plan),
         "render": {"preview_scale": r["preview_scale"], "resolution": plan["camera"]["resolution"],
                    "warmup_frames": u["warmup_frames"], "temporal_samples": u["temporal_samples"],
                    "anim_frames": u["anim_frames"], "fps": u["fps"], "cvars": u["cvars"]},
@@ -136,6 +145,23 @@ def _extra_light(L):
     return {"type": kind, "location": rl(to_ue(L["location"]), 2), "forward": rl(fwd),
             "color": rl(L.get("color", [1, 1, 1])), "intensity": intensity,
             "source_radius_cm": L.get("radius", 0.2) * CM, "name": L.get("name", "")}
+
+
+def _plume(look, cfg, plan):
+    sm, parts, gl, snow = look["smoke"], look["particles"], look["game_lights"], look["snow"]
+    speed = max(cfg["speed"] * sm["speed"], 0.1) * CM                    # cm/s
+    height = sm["rise"] * CM
+    sources = [dict(p, radius_cm=p["radius_cm"] * sm["spread"])
+               for p in ((plan.get("plume") or {}).get("plumes") or [])]
+    for x, y, z, r in sm["emitters"]:                                    # extra plumes from look.json
+        sources.append({"location": rl(to_ue([x, y, z]), 2), "radius_cm": r * CM * sm["spread"], "column_cm": 0.0})
+    drift = np.array([snow["wind"][0], -snow["wind"][1]]) * CM / speed * cfg["wind_drift"]
+    column = max([src["column_cm"] for src in sources] or [0.0])
+    return {"enabled": bool(cfg["enabled"]) and bool(sources), "sources": sources,
+            "Period": (height + column) / speed, "Height": height, "Grow": sm["grow"] / CM,
+            "Drift": rl(drift) + [0.0, 0.0], "Opacity": min(1.0, 0.7 * sm["density"]),
+            "SmokeColor": rl(sm["color"]) + [1.0], "Ambient": parts["ambient"],
+            "NormalStrength": parts["normal_strength"], "GlowColor": rl(gl["color"]) + [1.0], "Glow": cfg["glow"]}
 
 
 def _snow(cfg, plan):

@@ -261,6 +261,35 @@ def write_snowfall(path: Path, count=SNOW_MAX_FLAKES, seed=1):
     w.save(path)
 
 
+def write_plume(path: Path, frames, count=128, seed=7):
+    """Puff quads for a rising smoke column (M_GTB_Plume places them from time).
+      UV0 flipbook frame (glTF/Unreal v)   UV1 (phase 0..1, spin angle)
+      UV2 lateral jitter (-1..1)            UV3 corner (+-0.5, Blender v up)"""
+    rng = np.random.default_rng(seed)
+    phase = (np.arange(count) + rng.random(count) * 0.8) / count
+    angle = rng.random(count) * 2 * math.pi
+    jitter = rng.uniform(-1, 1, (count, 2))
+    fr = np.array(frames, dtype=np.float64)[rng.integers(0, len(frames), count)]    # u0, v0, u1, v1 (v up)
+    corners = np.array([[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]])
+    rep = lambda a: np.repeat(a, 4, axis=0)
+    c = np.tile(corners, (count, 1))
+    f = rep(fr)
+    u = f[:, 0] + (c[:, 0] + 0.5) * (f[:, 2] - f[:, 0])
+    v = f[:, 1] + (c[:, 1] + 0.5) * (f[:, 3] - f[:, 1])
+    uv0 = np.stack([u, 1.0 - v], 1)
+    pos = rep(rng.random((count, 3)) * 100.0 - 50.0)          # spread placeholders (see write_snowfall)
+    pos[:, 0] += c[:, 0] * 0.02
+    pos[:, 2] += c[:, 1] * 0.02
+    base = np.arange(count)[:, None] * 4
+    tris = np.concatenate([base + [0, 1, 2], base + [0, 2, 3]], 1).reshape(-1, 3)
+    colors = np.ones((count * 4, 4))
+    colors[:, 3] = rep(rng.uniform(0.6, 1.0, count))
+    w = GlbWriter()
+    w.add_mesh("SM_Plume", blender_to_gltf(pos), tris, blender_to_gltf(np.tile([0.0, -1.0, 0.0], (count * 4, 1))),
+               [uv0, rep(np.stack([phase, angle], 1)), rep(jitter), c], colors)
+    w.save(path)
+
+
 # --------------------------------------------------------------------------- main
 
 def export(capture: Path):
@@ -277,6 +306,7 @@ def export(capture: Path):
     chunks = ChunkedGlb(mesh_dir, "geo")
     materials, used_textures, actors = {}, {}, []
     surfaces_for_ray = []
+    sprite_frames_by_atlas = {}
     counts = {"surface": 0, "effect": 0, "sprite": 0, "snowdrift": 0}
 
     def use_tex(spec):
@@ -319,7 +349,16 @@ def export(capture: Path):
             d = to_ue(data["attr_p_center"].astype(np.float64)) - to_ue(pos_b)
             corner = data["attr_p_corner"].astype(np.float64) * CM
             tan, bit = sprite_frames(data)
-            uv_list += [d[:, :2], np.stack([d[:, 2], np.zeros(len(d))], 1), corner, tan, bit]
+            # Per-puff random phase: the editor preview loops the puffs, out of step.
+            puff_id = np.unique(np.round(data["attr_p_center"], 3), axis=0, return_inverse=True)[1].ravel()
+            phase = np.random.default_rng(i).random(puff_id.max() + 1)[puff_id]
+            uv_list += [d[:, :2], np.stack([d[:, 2], np.zeros(len(d))], 1), corner, tan, bit,
+                        np.stack([phase, np.zeros(len(d))], 1)]
+            if sp["kind"] == "smoke":
+                for k in np.unique(puff_id):
+                    uv = data["uv0"][puff_id == k]
+                    sprite_frames_by_atlas.setdefault(sp["atlas"], set()).add(
+                        tuple(np.round([uv[:, 0].min(), uv[:, 1].min(), uv[:, 0].max(), uv[:, 1].max()], 4)))
             kw["colors"] = data["colors"] if "colors" in data else np.ones((len(pos_b), 4))
             kw["normals"] = blender_to_gltf(smooth_normals(pos_b, tris))
             actor.update(cast_shadow=False, folder="Particles")
@@ -368,6 +407,23 @@ def export(capture: Path):
     chunks.flush()
     write_snowfall(out / "SM_Snowfall.glb")
 
+    # Smoke columns (the generator's is drawn from a live render target the ripper
+    # can't save): rebuilt from the game's own smoke flipbook, the sheet with the
+    # most frames.
+    plume = None
+    if manifest.get("smoke") and sprite_frames_by_atlas:
+        atlas = max(sprite_frames_by_atlas, key=lambda a: len(sprite_frames_by_atlas[a]))
+        spec = texture_spec(textures[atlas], "linear")
+        use_tex(spec)
+        write_plume(out / "SM_Plume.glb", sorted(sprite_frames_by_atlas[atlas]))
+        plumes = []
+        for pl in manifest["smoke"]:
+            pts = np.array(pl["points"], dtype=np.float64)
+            low, top = pts[np.argmin(pts[:, 2])], pts[np.argmax(pts[:, 2])]
+            plumes.append({"location": r3(to_ue(low[:3]), 2), "radius_cm": round(float(low[3]) * CM, 1),
+                           "column_cm": round(float(top[2] - low[2]) * CM, 1), "source": pl.get("source", "")})
+        plume = {"glb": str((out / "SM_Plume.glb").resolve()), "atlas": spec, "plumes": plumes}
+
     cam = manifest.get("camera", {})
     M = np.array(cam.get("matrix_world") or np.eye(4), dtype=np.float64)
     w, h = manifest["resolution"]
@@ -398,6 +454,7 @@ def export(capture: Path):
         "game_lights": lights,
         # Blender-space snow box, kept for the look mapping (box_scale is a look setting).
         "snow_box_blender": box,
+        "plume": plume,
         "counts": counts,
     }
     (out / "plan.json").write_text(json.dumps(plan, indent=1), encoding="utf-8")

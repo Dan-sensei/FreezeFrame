@@ -195,7 +195,7 @@ def build_materials(plan, cap, masters, textures):
     and the per-material instances as its children."""
     mdir = f"{cap}/Materials"
     look_mis = {}
-    for key in ("surface", "surface_masked", "snowdrift", "smoke", "fire", "snowfall", "sky", "tonemap"):
+    for key in ("surface", "surface_masked", "snowdrift", "smoke", "fire", "plume", "snowfall", "sky", "tonemap"):
         name = {"snowfall": "MI_Snowfall", "sky": "MI_Sky", "tonemap": "MI_Tonemap"}.get(
             key, "MI_Look_" + "".join(w.title() for w in key.split("_")))
         look_mis[key] = material_instance(name, mdir, masters[key])
@@ -357,9 +357,13 @@ def apply_look(look, plan, cap, look_mis, defaults):
     set_params(look_mis["snowdrift"], {"NormalStrength": look["normal_strength"]}, {"DriftColor": look["drift_color"]})
     p = look["particles"]
     common = {k: p[k] for k in ("Opacity", "Billboard", "Rise")}
-    set_params(look_mis["smoke"], dict(common, Translucency=p["Translucency"], Ambient=p["Ambient"],
-                                       NormalStrength=p["NormalStrength"]), {"SmokeColor": p["SmokeColor"]})
-    set_params(look_mis["fire"], dict(common, FireStrength=p["FireStrength"]))
+    set_params(look_mis["smoke"], dict(common, Ambient=p["Ambient"], NormalStrength=p["NormalStrength"],
+                                       LoopSeconds=p["LoopSeconds"]), {"SmokeColor": p["SmokeColor"]})
+    set_params(look_mis["fire"], dict(common, FireStrength=p["FireStrength"], LoopSeconds=0.0))
+    pl = look["plume"]
+    set_params(look_mis["plume"], {k: pl[k] for k in ("Period", "Height", "Grow", "Opacity", "Ambient",
+                                                        "NormalStrength", "Glow")},
+               {k: pl[k] for k in ("Drift", "SmokeColor", "GlowColor")})
     sn = look["snow"]
     set_params(look_mis["snowfall"], {k: sn[k] for k in ("FollowCamera", "FallSpeed", "Flutter", "Size",
                                                           "CountFraction", "Opacity", "Brightness")},
@@ -373,6 +377,7 @@ def apply_look(look, plan, cap, look_mis, defaults):
         if "gtb_particles" in tags:
             a.set_actor_hidden_in_game(not p["enabled"])
             a.static_mesh_component.set_visibility(p["enabled"])
+    place_plumes(pl, cap, look_mis["plume"])
     snow = actors.get("Snowfall")
     if snow:
         snow.set_actor_hidden_in_game(not sn["enabled"])
@@ -495,6 +500,27 @@ def apply_look(look, plan, cap, look_mis, defaults):
     if look.get("smoke_volumes"):
         warn("look.smoke.enabled: volumetric smoke plumes are Blender-only; the sprites carry the smoke")
     log("look applied")
+
+
+def place_plumes(pl, cap, look_mi):
+    """Smoke columns: one actor + instance per source (rebuilt on every look pass)."""
+    eas = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+    old = [a for a in all_actors() if "gtb_plume" in [str(t) for t in a.tags]]
+    if old:
+        eas.destroy_actors(old)
+    mesh_path = f"{cap}/Meshes/SM_Plume"
+    if not pl["enabled"] or not EAL.does_asset_exist(mesh_path):
+        return
+    mesh = EAL.load_asset(mesh_path)
+    for i, src in enumerate(pl["sources"]):
+        mi = material_instance(f"MI_Plume_{i:02d}", f"{cap}/Materials", look_mi)
+        set_params(mi, {"Radius": src["radius_cm"], "Column": src["column_cm"]})
+        EAL.save_loaded_asset(mi)
+        a = spawn(mesh, f"SmokeColumn{i:02d}", "Smoke", src["location"])
+        a.static_mesh_component.set_material(0, mi)
+        a.static_mesh_component.set_cast_shadow(False)
+        a.tags = ["gtb_plume"]
+    log(f"smoke columns: {len(pl['sources'])}")
 
 
 # --------------------------------------------------------------------------- sequences / render
@@ -634,6 +660,13 @@ def main():
         setp(snow_mesh, "negative_bounds_extension", unreal.Vector(1e6, 1e6, 1e6))
         EAL.save_loaded_asset(snow_mesh)
         look_mis, mis = build_materials(plan, cap, masters, textures)
+        if plan.get("plume"):
+            import_files([(plan["plume"]["glb"], None)], mdir, opts)          # asset SM_Plume
+            plume_mesh = EAL.load_asset(f"{mdir}/SM_Plume")
+            setp(plume_mesh, "positive_bounds_extension", unreal.Vector(1e5, 1e5, 1e5))
+            setp(plume_mesh, "negative_bounds_extension", unreal.Vector(1e5, 1e5, 1e5))
+            EAL.save_loaded_asset(plume_mesh)
+            set_params(look_mis["plume"], textures={"Atlas": textures[plan["plume"]["atlas"]["file"]]})
         build_level(plan, cap_name, meshes, mis, look_mis, snow_mesh, defaults)
     else:
         les, _ = open_level(cap_name)

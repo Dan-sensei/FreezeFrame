@@ -196,21 +196,40 @@ return DriftColor.rgb;
 """
 
 # billboard_node_group: re-face each puff to the rendering camera and drift up.
-# UV1.xy/UV2.x: vertex -> puff centre; UV3: corner along the game camera's right/up.
-# T is the Level Sequence's time only: with the editor's ever-growing engine clock
-# the puffs would float hundreds of metres up.
+# UV1.xy/UV2.x: vertex -> puff centre; UV3: corner along the game camera's right/up;
+# UV6.x: random phase per puff. In the Level Sequence (and renders) puffs drift up
+# with the sequence time like Blender. In the editor / Play (engine time, W = 1,
+# which grows without end) they instead rise and fade in a loop of LoopSeconds, so
+# the viewport is alive but the smoke stays where the game drew it.
 SPRITE_WPO = r"""
-float3 off = float3(0.0, 0.0, Rise * T);
+float3 off = float3(0.0, 0.0, Rise * TSeq);
+float grow = 1.0;
+if (LoopSeconds > 0.0 && W > 0.5)
+{
+    float u = frac(TAll / LoopSeconds + Phase.x);
+    off.z = Rise * LoopSeconds * u;
+    grow = 1.0 + 0.4 * u;
+}
 if (Billboard > 0.5)
-    off += float3(D1.x, D1.y, D2.x) + Corner.x * CamR + Corner.y * CamU;
+    off += float3(D1.x, D1.y, D2.x) + (Corner.x * CamR + Corner.y * CamU) * grow;
 return off;
+"""
+
+# Fade for the editor loop (see SPRITE_WPO): in at the bottom, out at the top.
+LOOP_FADE = r"""
+float fade = 1.0;
+if (LoopSeconds > 0.0 && W > 0.5)
+{
+    float lu = frac(TAll / LoopSeconds + Phase.x);
+    fade = saturate(lu / 0.15) * saturate((1.0 - lu) / 0.35);
+}
 """
 
 # build_sprite_material (smoke): flipbook alpha x vertex alpha x opacity; the
 # sheet's RGB is a tangent-space normal along the sprite's texture axes.
-SMOKE = r"""
+SMOKE = LOOP_FADE + r"""
 float4 a = Texture2DSample(Atlas, AtlasSampler, UV);
-Alpha = min(a.a * VColorA * Opacity, 1.0);
+Alpha = min(a.a * VColorA * Opacity * fade, 1.0);
 float xs = a.r * 2.0 - 1.0;
 float ys = a.g * 2.0 - 1.0;
 float zs = sqrt(max(1.0 - xs * xs - ys * ys, 0.0));
@@ -223,10 +242,42 @@ Emis = SmokeColor.rgb * Ambient;
 return SmokeColor.rgb;
 """
 
-FIRE = r"""
+FIRE = LOOP_FADE + r"""
 float4 a = Texture2DSample(Atlas, AtlasSampler, UV);
-Alpha = min(a.a * VColorA * Opacity, 1.0);
+Alpha = min(a.a * VColorA * Opacity * fade, 1.0);
 return a.rgb * FireStrength;
+"""
+
+# Smoke column (no Blender counterpart in the looks: Blender's volumetric plume is
+# off in the Frostpunk presets). Puffs leave the vent at their phase, rise the
+# game's column plus Height over Period, widen by Grow per cm, drift with the wind
+# and spin. UV1 = (phase, angle), UV2 = jitter, UV3 = corner (+-0.5).
+PLUME_WPO = r"""
+float u = frac(T / Period + P1.x);
+float h = (Column + Height) * u;
+float r = Radius * (1.0 + Grow * h);
+float2 cs = float2(cos(P1.y), sin(P1.y));
+float2 c = float2(Corner.x * cs.x - Corner.y * cs.y, Corner.x * cs.y + Corner.y * cs.x) * r * 2.4;
+float3 centre = Base + float3(P2.xy * r * 0.45 + Drift.xy * h, h);
+return centre + c.x * CamR + c.y * CamU - WorldPos;
+"""
+
+PLUME = r"""
+float4 a = Texture2DSample(Atlas, AtlasSampler, UV);
+float u = frac(T / Period + P1.x);
+float fade = saturate(u / 0.06) * saturate((1.0 - u) / 0.55);
+Alpha = min(a.a * VColorA * Opacity * fade, 1.0);
+float2 cs = float2(cos(P1.y), sin(P1.y));
+float xs = a.r * 2.0 - 1.0;
+float ys = a.g * 2.0 - 1.0;
+float zs = sqrt(max(1.0 - xs * xs - ys * ys, 0.0));
+float3 nf = -CamF;
+float3 tw = cs.x * CamR + cs.y * CamU;
+float3 bw = -cs.y * CamR + cs.x * CamU;
+WorldN = normalize(lerp(nf, normalize(xs * tw + ys * bw + zs * nf), NormalStrength));
+// Furnace light on the smoke just above the vent.
+Emis = SmokeColor.rgb * Ambient + GlowColor.rgb * Glow * pow(saturate(1.0 - u * 5.0), 2.0);
+return SmokeColor.rgb;
 """
 
 # snow_node_group: flakes as a pure function of time, wrapped in a box that

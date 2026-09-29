@@ -113,7 +113,8 @@ The build reads `manifest.json` directly, so Unreal makes the same decisions as 
 - **Materials** follow the same rules as Blender. Albedo alpha is a cut-out mask. A+G normals carry R as roughness. Roof snow goes on up-facing surfaces, using a port of Blender's noise so the patches match. Snow drifts get the snow material, and untextured terrain gets a flat colour. All per-look values live on one material instance per master, `MI_Look_*`.
 - **Lighting** comes from `look.json` in the same units as Blender. The sun becomes a directional light and the sky a flat sky light plus a dome. Depth fog becomes an exponential height fog, converted exactly. The 384 game lights become point lights (P / 4π candela).
 - **Colour**: Blender bakes its own grade and AgX look into a 3D LUT. A post-process material that replaces Unreal's tonemapper applies it, so the same `look.json` produces the same colours.
-- **Smoke and fire sprites** are re-faced to the camera by their material. **Snowfall** is 100k flake quads placed by the material from time and camera, like the Blender geometry nodes. Both are driven by a time parameter that the Level Sequence animates, so stills are repeatable and scrubbing works. In the editor viewport the snow keeps falling, but smoke and fire only drift upward while `LS_Anim` plays or is scrubbed; otherwise they stay where the game drew them.
+- **Smoke and fire sprites** are re-faced to the camera by their material. **Snowfall** is 100k flake quads placed by the material from time and camera, like the Blender geometry nodes. Both are driven by a time parameter that the Level Sequence animates, so stills are repeatable and scrubbing works. In the editor viewport and in Play, the snow keeps falling and the game's smoke puffs rise and fade in a short loop (`unreal.smoke_loop_seconds`), so they stay where the game drew them. In `LS_Anim` they drift up like in Blender.
+- **Smoke columns**, such as the generator's, are drawn by the game from a live render target that can't be ripped. They're rebuilt as a continuous column of the game's own smoke puffs, rising from the furnace with its glow at the base. Height, widening, colour and density come from `look.smoke`, like Blender's volumetric plume, which is off in the Frostpunk presets. Extra columns can be added with `smoke.emitters`.
 - **Cameras**: `GameCamera` is a CineCameraActor with the solved FOV. `Closeup35`, `Closeup15` and `CloseupLow` are the same check views as `gtb.py closeups`.
 - **Sequences**: `Render/LS_Anim` is the 250-frame animation and `Render/LS_Stills` holds the four stills, with matching `MRQ_*` render configs.
 
@@ -128,7 +129,7 @@ Other commands:
 | `unreal-calibrate <capture>` | Match exposure to the screenshot. Unless the look has `calibrate: false`, this sets `unreal.exposure_offset` in `look.json` |
 | `unreal-open <capture>` | Open the level in the Unreal editor |
 
-Keys under `"unreal"` in `look.json` only affect Unreal: `exposure_offset` (stops), `bloom_intensity`, `bloom_threshold`, `warmup_frames`, `temporal_samples`, `anim_frames` and `fps`. Blender ignores them. Volumetric smoke plumes (`smoke.enabled`) are Blender-only; in Unreal the game's smoke sprites carry the smoke.
+Keys under `"unreal"` in `look.json` only affect Unreal: `exposure_offset` (stops), `bloom_intensity`, `bloom_threshold`, `warmup_frames`, `temporal_samples`, `anim_frames`, `fps`, `cvars`, `smoke_loop_seconds` and `plume` (`{"enabled", "speed", "glow", "wind_drift"}`). Blender ignores them. Volumetric smoke plumes (`smoke.enabled`) are Blender-only; in Unreal the game's smoke sprites carry the smoke.
 
 ## Self-test (no game needed)
 
