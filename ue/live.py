@@ -3,7 +3,7 @@ ue.remote (Python Remote Execution), instead of a headless rebuild that needs
 the editor closed. Changes go into one undo transaction and stay unsaved.
 
     python -m ue.live cloth <capture>       banners: M_GTB_Cloth, MI_Look_Cloth, each banner's room
-    python -m ue.live materials <capture>   every material instance and texture import kind
+    python -m ue.live materials <capture>   every material instance, texture import kind and actor's material
     python -m ue.live plume <capture>       the smoke column: M_GTB_Plume and MI_Look_Plume from look.json
 
 Both re-export the capture's Unreal plan first, so the editor gets what the
@@ -141,7 +141,7 @@ import os, json, unreal
 D = json.loads(DATA)
 MEL, EAL = unreal.MaterialEditingLibrary, unreal.EditorAssetLibrary
 CAP = D["content"]
-changed = imported = reparented = 0
+changed = imported = reparented = created = reassigned = 0
 def texture(spec):
     global imported
     name = "T_" + os.path.splitext(spec["file"])[0]
@@ -164,9 +164,10 @@ with unreal.ScopedEditorTransaction("GTB: materials"):
             changed += 1
     for m in D["materials"]:
         mi = EAL.load_asset(f"{CAP}/Materials/{m['name']}")
-        if mi is None:
-            print(f"GTB live: missing {m['name']} (needs a full `gtb unreal` build)")
-            continue
+        if mi is None:                               # a material the editor's build didn't have
+            mi = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+                m["name"], f"{CAP}/Materials", unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
+            created += 1
         mi.modify()
         look = "MI_Look_" + "".join(w.title() for w in m["parent"].split("_"))   # as gtb_ue.build_materials
         parent = EAL.load_asset(f"{CAP}/Materials/{look}") if EAL.does_asset_exist(f"{CAP}/Materials/{look}") else None
@@ -182,8 +183,23 @@ with unreal.ScopedEditorTransaction("GTB: materials"):
             MEL.set_material_instance_vector_parameter_value(mi, k, unreal.LinearColor(*(list(v) + [0.0] * 4)[:4]))
         for k, spec in (m.get("textures") or {}).items():
             MEL.set_material_instance_texture_parameter_value(mi, k, texture(spec))
-print(f"GTB live: {len(D['materials'])} material instance(s) reset from the plan ({reparented} re-parented), "
-      f"{changed} texture(s) re-flagged, {imported} imported")
+    # Material names are numbered in order of first use, so a material added or merged
+    # upstream renumbers the ones after it. Point every rip actor at the instance the
+    # plan names, so the editor matches a fresh build even after such a shift.
+    for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors():
+        want = D["actors"].get(a.get_actor_label())
+        c = a.get_component_by_class(unreal.StaticMeshComponent) if want else None
+        if c is None:
+            continue
+        cur = c.get_material(0)
+        if cur is None or cur.get_name() != want:
+            mi = EAL.load_asset(f"{CAP}/Materials/{want}")
+            if mi is not None:
+                c.modify()
+                c.set_material(0, mi)
+                reassigned += 1
+print(f"GTB live: {len(D['materials'])} material instance(s) reset from the plan ({reparented} re-parented, "
+      f"{created} created), {reassigned} actor(s) re-pointed, {changed} texture(s) re-flagged, {imported} imported")
 '''
 
 
@@ -209,7 +225,8 @@ def main():
         print(_send(PLUME, dict(base, params=params, glb=(plan.get("plume") or {}).get("glb"))), end="")
         return
     if sys.argv[1] == "materials":
-        print(_send(MATERIALS, dict(base, textures=plan["textures"], materials=plan["materials"])), end="")
+        print(_send(MATERIALS, dict(base, textures=plan["textures"], materials=plan["materials"],
+                                    actors={a["name"]: a["material"] for a in plan["actors"] if a.get("material")})), end="")
         return
     data = dict(base, params=cloth_params(load_look(cap / "look.json")),
                 materials=[m["name"] for m in plan["materials"] if m["parent"] == "cloth"],

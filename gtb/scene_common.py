@@ -115,7 +115,7 @@ def assign_slots(mesh_tex, textures, profile):
         entry = textures.get(tid)
         if not entry or "file" not in entry:
             continue
-        if entry["role"] == "shared":  # engine-global texture, never a material input
+        if entry["role"] in ("shared", "detail"):  # engine-global texture or a detail layer (textures.detail_layers)
             continue
         role = slot_roles.get(str(slot), entry["role"])
         if role in ("ignore", "constant", "environment", "hdr"):

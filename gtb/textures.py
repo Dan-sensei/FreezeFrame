@@ -192,6 +192,33 @@ def slot_consensus(draws, entries, min_textures=3, agree=0.75):
     return changed
 
 
+def detail_layers(draws, entries, min_partners=2):
+    """A draw has one base colour. A colour texture bound next to several different
+    other colour textures can't be the base colour of all of them: it is a detail or
+    overlay layer that the shader blends in some other way. Frostpunk: t0033, a 4096
+    atlas of snow, ice, moss and rock tiles, is bound with the rocks' own albedos
+    (t0021, t0019, t0077), and was picked over them as the larger texture. On the dead
+    trees, whose only other colour is the grey bark t0046, it was read through the
+    trunk's UVs and painted it with the atlas's moss tile. Each real albedo there has
+    one colour partner (the atlas). Such a layer gets role "detail", which no slot
+    rule uses. Grey maps don't count as partners: an albedo usually comes with its
+    roughness. draws: iterable of (pixel shader, {slot: texture id}); entries are
+    edited in place. Returns {texture id: (old role, "detail")}."""
+    from collections import defaultdict
+    partners = defaultdict(set)
+    for _, tex in draws:
+        colour = {t for t in tex.values() if (entries.get(t) or {}).get("role") == "albedo"}
+        for t in colour:
+            partners[t] |= colour - {t}
+    changed = {}
+    for t, others in partners.items():
+        if len(others) >= min_partners:
+            changed[t] = (entries[t]["role"], "detail")
+            entries[t].update(role="detail", details=dict(entries[t].get("details") or {},
+                                                          role_from=f"bound with {len(others)} other albedos"))
+    return changed
+
+
 def surface_draws(meshes):
     """(pixel shader, {slot: texture id}) of the manifest's surface draws."""
     return [(m["shaders"][1], m.get("textures", {})) for m in meshes
@@ -218,6 +245,7 @@ def reclassify(capture: Path):
         role, details = classify_with_stats(arr[..., None] if arr.ndim == 2 else arr, e.get("info"))
         e.update(role=role, details=details)
     slot_consensus(surface_draws(manifest["meshes"]), entries)
+    detail_layers(surface_draws(manifest["meshes"]), entries)
     path.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
     after = {t: (e.get("role"), (e.get("details") or {}).get("channels")) for t, e in entries.items()}
     return {t: (before[t], after[t]) for t in entries if before[t] != after[t]}

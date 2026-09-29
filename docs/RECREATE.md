@@ -58,11 +58,12 @@ This runs `process` (rip → `manifest.json` + meshes + textures), `build` (→ 
 - `solved FOV from 1041 rigid draws: fov_y=55.00 deg, aspect=2.389`
 - `220 textures`. One of them is auto-detected as a shared engine texture and ignored.
 - `texture t0091: normal:AG -> albedo` and `texture t0159: albedo -> normal:AG`: the shader slot consensus correcting two roles. `t0018` and `t0084` are already classified as normals. See the texture-role note in `CLAUDE.md`.
+- `texture t0033: albedo -> detail (a layer over several other albedos, not a base colour)`: the game's 4096² snow/ice/moss/rock atlas, bound next to three different albedos. As a colour it painted the dead trees with a yellow moss tile.
 - `per-mesh winding: flipped 1353 meshes to match the game's normals`
 - `1 smoke plume(s) from smoke columns: ['mesh_5092_5092']` (the generator)
 - `wrote manifest with 2302 meshes {'surface': 1685, 'effect': 573, 'sprite': 44}`
 - The manifest has 384 lights (323 point and 61 hemi).
-- `built 1685 + 573 hidden effect objects, 44 particle sprites, 112 materials`
+- `built 1685 + 573 hidden effect objects, 44 particle sprites, 111 materials`
 - The new capture starts with the profile's look, which is the night look (`profiles/looks/frostpunk_night.json` without an exposure). `calibrate` should end at `exposure` −0.73 ± 0.05: the verification run got −0.73, and the original capture −0.76 under older material rules.
 
 Keep that calibrated night look under its own name, because step 5 replaces `look.json`:
@@ -87,7 +88,7 @@ python gtb.py unreal Frostpunk_20260929_115750
 
 The first ever run also compiles shaders and textures, which takes a few minutes more. Expected output:
 
-- `plan: {'surface': 1444, 'cloth': 44, 'effect': 573, 'sprite': 44, 'snowdrift': 241}, 113 materials, ... 384 game lights`. That is one more material than Blender's 112, because the ground-mist cards get their own (`MI_Sprite_mist_t0114`). `cloth` counts the red banners that flutter (they are also counted in `surface`). The export ray-casts each banner's clearance to the walls and frames around it, in a few seconds. `python -m ue.cloth_check Frostpunk_20260929_115750` must then print `0 banner(s) clip, 0 jerky, 4 barely move`.
+- `plan: {'surface': 1444, 'cloth': 44, 'effect': 573, 'sprite': 44, 'snowdrift': 241}, 112 materials, ... 384 game lights`. That is one more material than Blender's 111, because the ground-mist cards get their own (`MI_Sprite_mist_t0114`). `cloth` counts the red banners that flutter (they are also counted in `surface`). The export ray-casts each banner's clearance to the walls and frames around it, in a few seconds. `python -m ue.cloth_check Frostpunk_20260929_115750` must then print `0 banner(s) clip, 0 jerky, 4 barely move`.
 - The build takes about 60 s, with `smoke columns: 1` and `done (0 warnings)`.
 - `4 frame(s)` rendered by Movie Render Queue in about 25 s.
 - Night look: about 0.1 stops from the screenshot and from Blender's game view. Edge alignment against Blender is only 0.6–0.75, because the dense night snowfall uses different random flakes in each engine.
@@ -147,6 +148,7 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 - **Framing:** the game camera matches the screenshot edge for edge (edge alignment against Blender is about 0.93–0.95).
 - **Snow:** roof snow sits on up-facing surfaces in patches. The rim plateau (mesh_5267/5269) and the far cliff tops (mesh_1592–1598) are **plain snow**. Black-and-white leopard spots there mean a grayscale mask was used as colour; see `assign_slots` in `gtb/scene_common.py`.
 - **Terrain:** the crater floor has no UVs and uses the flat `materials.ground_color`.
+- **Dead trees** (`MI_M023`, 61 meshes): grey bark (`t0046`) under frost, lying in the snow. No yellow-green or marble patches.
 - **Wood and metal:** the frosted planks of the banner stands, towers and building frames (`MI_M008`: colour `t0017`, normal `t0018`) are weathered grey-brown wood with frost. Green, orange or blue streaks mean a packed normal map is being used as colour; see step 8.
 - **Lights:** street lamps and building lights glow warm (384 game lights). The generator glows.
 - **Smoke:** chimney smoke sprites sit at the chimneys. Smoke puffs rise and fade in a loop in the Unreal editor. In Unreal, after step 4b, the generator has a billowing bluish-white fluid plume (`GeneratorPlume`). It rises out of the furnace with an orange glow at its base, and thins and lightens as it climbs. It rises straight, with no sideways drift and no hard edge. Without step 4b, or after `--show sprites`, it has the sprite column instead (`SmokeColumn00`): darker and denser, lit by the fire, with flames at its base. Blender's volumetric version (`smoke.enabled`) is off in both presets.
@@ -181,7 +183,7 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 
 - **Different mesh or texture counts after `process`:** check that the rip folder is complete (6,195 `.nr` files) and that `profiles/frostpunk.json` is unchanged.
 - **FOV not solved:** pre-VS data is missing. Ninja Ripper needs "save pre-VS" on.
-- **Green, orange or blue streaked surfaces** (or flat, texture-less ones): a normal map is being used as colour, or the other way round. Captures processed before the texture-role fix (2026-09-29) need `python gtb.py textures <capture>` once. It needs no rip and should change 4 roles on this capture. Then run `build` (close `scene.blend` first) and `unreal`, or `python -m ue.live materials <capture>` with the editor open.
+- **Green, orange or blue streaked surfaces** (or flat, texture-less ones): a normal map is being used as colour, or the other way round. **Yellow-green or marbled patches on trees and rocks**: the `t0033` atlas is being used as colour. Captures processed before these texture-role fixes (2026-09-29) need `python gtb.py textures <capture>` once. It needs no rip and should change 5 roles on this capture: `t0018`, `t0084` and `t0159` become normals, `t0091` an albedo, and `t0033` a detail layer. Running it again changes nothing. Then run `build` (close `scene.blend` first) and `unreal`, or `python -m ue.live materials <capture>` with the editor open.
 - **Unreal step fails:** read `captures/<name>/unreal/build.log`, then `build_engine.log`. For renders, read `render_stills_engine.log`.
 - **Unreal colours about a stop too bright or washed out:** the colour pass must stay before the tonemapper. See the Unreal section of `CLAUDE.md`.
 - **No generator smoke after step 4b:** give it 60–90 s if the editor isn't in focus. Then check that the sky dome has no collision (the script sets its profile to `NoCollision`) and that the three plugins are enabled. See [GENERATOR_SMOKE.md](GENERATOR_SMOKE.md), Pitfalls.

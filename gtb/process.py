@@ -611,6 +611,11 @@ def process(capture: Path):
          for b in built if b["cat"] == "surface" and len(b["dd"].d.shaders) >= 2], tex_entries)
     for tid, (old, new) in fixed.items():
         print(f"[process] texture {tid}: {old} -> {new} (what its shader slots read)")
+    layers = textures.detail_layers(
+        [(b["dd"].d.shaders[1], {str(s): tex_ids[n] for s, n in enumerate(b["tex"]) if n in tex_ids})
+         for b in built if b["cat"] == "surface" and len(b["dd"].d.shaders) >= 2], tex_entries)
+    for tid, (old, new) in layers.items():
+        print(f"[process] texture {tid}: {old} -> {new} (a layer over several other albedos, not a base colour)")
     nr_shot = pick_reference_screenshot(capture, rip, (width, height), set(tex_ids))
     roles = Counter(e.get("role", "error") for e in tex_entries.values())
     print(f"[process] {len(tex_entries)} textures: {dict(roles)}")

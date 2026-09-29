@@ -63,14 +63,28 @@ slot_tex = {f"t{i}": {"role": "albedo", "details": {}} for i in range(4)}
 slot_tex.update({f"n{i}": {"role": "normal", "details": {"channels": "AG"}} for i in range(4)})
 slot_tex["n3"] = {"role": "albedo", "details": {}}                      # a normal taken for an albedo
 textures.slot_consensus([("ps", {"0": f"t{i}", "1": f"n{i}"}) for i in range(4)], slot_tex)
-from gtb.scene_common import packed_channels  # noqa: E402
+from gtb.scene_common import packed_channels, assign_slots  # noqa: E402
 flat_r = {"details": {"mean_rgb": [0.0, 0.51, 0.0]}}                  # Frostpunk banner normal map t0006
+# A colour atlas bound with three different albedos (Frostpunk t0033) is a detail layer;
+# on a draw whose other colour is a grey bark map, the bark becomes the albedo.
+layer = {"a0": {"role": "albedo", "size": [2048, 2048], "file": "a0.png"},
+         "a1": {"role": "albedo", "size": [2048, 2048], "file": "a1.png"},
+         "a2": {"role": "albedo", "size": [2048, 2048], "file": "a2.png"},
+         "atlas": {"role": "albedo", "size": [4096, 4096], "file": "atlas.png"},
+         "bark": {"role": "gray", "size": [1024, 1024], "file": "bark.png",
+                  "details": {"mean_rgb": [0.65, 0.65, 0.65], "border_mean": 0.64}}}
+textures.detail_layers([("ps", {"0": f"a{i}", "4": "atlas"}) for i in range(3)] + [("pt", {"0": "bark", "2": "atlas"})], layer)
+bark_slots = assign_slots({"0": "bark", "2": "atlas"}, layer, {})
+rock_slots = assign_slots({"0": "a0", "4": "atlas"}, layer, {})
 checks.update({
     "materials: an all-zero roughness channel is not a mirror": packed_channels({"R": "Roughness"}, flat_r) == {}
     and packed_channels({"R": "Roughness"}, {"details": {"mean_rgb": [0.7, 0.5, 0.1]}}) == {"R": "Roughness"},
     "textures: flat A+G normal is a normal": textures.classify(flat_ag, None) == ("normal", {"channels": "AG"}),
     "textures: slot consensus fixes a lone albedo in a normal slot": slot_tex["n3"]["role"] == "normal"
     and slot_tex["n3"]["details"].get("channels") == "AG" and slot_tex["t3"]["role"] == "albedo",
+    "textures: an atlas bound with several albedos is a detail layer, not the base colour":
+    layer["atlas"]["role"] == "detail" and all(layer[f"a{i}"]["role"] == "albedo" for i in range(3))
+    and rock_slots["albedo"]["file"] == "a0.png" and bark_slots["albedo"]["file"] == "bark.png",
 })
 checks.update({
     "import: capture.json from the rip": imp_meta.get("game_exe") == "Frostpunk.exe"
