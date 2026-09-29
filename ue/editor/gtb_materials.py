@@ -15,7 +15,7 @@ F1, F2, F3, F4 = (unreal.CustomMaterialOutputType.CMOT_FLOAT1, unreal.CustomMate
                   unreal.CustomMaterialOutputType.CMOT_FLOAT3, unreal.CustomMaterialOutputType.CMOT_FLOAT4)
 
 # Bump when a master graph changes: existing masters are rebuilt in place.
-MASTER_VERSION = "7"
+MASTER_VERSION = "8"
 
 
 class Graph:
@@ -278,15 +278,21 @@ def build_plume(mat, defaults, mpc):
         "Period": period, "Height": g.scalar("Height", 8000.0, "Look"), "Grow": g.scalar("Grow", 0.0007, "Look"),
         "Drift": g.vector("Drift", (0.2, 0.0, 0.0, 0.0), "Look"),
         "Radius": g.scalar("Radius", 400.0), "Column": g.scalar("Column", 0.0),
+        "PuffSize": g.scalar("PuffSize", 1.6, "Look"), "Spread": g.scalar("Spread", 1.0, "Look"),
     }, F3, desc="GTB Plume motion")
     g.out(wpo, "", MP.MP_WORLD_POSITION_OFFSET)
     vc = g.node(unreal.MaterialExpressionVertexColor)
     c = g.custom(hlsl.PLUME, {
-        "UV": g.texcoord(0), "P1": p1, "VColorA": (vc, "A"), "T": t, "Period": period,
+        "UV": g.texcoord(0), "P1": p1, "Corner": g.texcoord(3), "VColorA": (vc, "A"), "T": t, "Period": period,
+        "WorldPos": g.node(unreal.MaterialExpressionWorldPosition),
+        "Base": g.node(unreal.MaterialExpressionObjectPositionWS),
         "Atlas": g.texture("Atlas", defaults["linear"]), "CamR": cam_r, "CamU": cam_u, "CamF": g.view_axis(0, 0, 1),
         "Opacity": g.scalar("Opacity", 0.6, "Look"), "NormalStrength": g.scalar("NormalStrength", 1.0, "Look"),
         "SmokeColor": g.vector("SmokeColor", (0.33, 0.34, 0.38, 1), "Look"), "Ambient": g.scalar("Ambient", 0.25, "Look"),
         "GlowColor": g.vector("GlowColor", (1.0, 0.38, 0.14, 1), "Look"), "Glow": g.scalar("Glow", 1.5, "Look"),
+        "ShadowColor": g.vector("ShadowColor", (0.13, 0.11, 0.095, 1), "Look"),
+        "Detail": g.scalar("Detail", 1.0, "Look"), "FireReach": g.scalar("FireReach", 2500.0, "Look"),
+        "FlameHeight": g.scalar("FlameHeight", 0.16, "Look"), "FlameStrength": g.scalar("FlameStrength", 5.0, "Look"),
     }, F3, {"Alpha": F1, "WorldN": F3, "Emis": F3}, desc="GTB Plume")
     g.out(c, "", MP.MP_BASE_COLOR)
     g.out(c, "Alpha", MP.MP_OPACITY)

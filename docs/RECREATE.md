@@ -25,11 +25,11 @@ Without the rip, nothing about the scene can be recreated. The code, the profile
 |---|---|---|
 | Python | 3.13.1 (3.11+ works) | `python -m pip install -r requirements.txt` (numpy, pillow ≥ 11, opencv-python, pynput) |
 | Blender | 5.2 | `blender_exe` in `config.json` (default `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`). Always run it with `--factory-startup`. |
-| Unreal Engine | 5.8.3 (Epic launcher install) | Found automatically under `C:\Program Files\Epic Games\UE_5.x`, or set `unreal_editor` in `config.json` to `...\Engine\Binaries\Win64\UnrealEditor-Cmd.exe`. The project that `gtb.py` generates turns on the Python, Editor Scripting, Movie Render Queue and Sequencer Scripting plugins. |
+| Unreal Engine | 5.8.3 (Epic launcher install) | Found automatically under `C:\Program Files\Epic Games\UE_5.x`, or set `unreal_editor` in `config.json` to `...\Engine\Binaries\Win64\UnrealEditor-Cmd.exe`. The project that `gtb.py` generates turns on the Python, Editor Scripting, Movie Render Queue, Sequencer Scripting, Niagara Fluids, Toolset Registry and Niagara Toolsets plugins. |
 | Ninja Ripper | 2.18 | Only needed for new captures. Settings are in `CLAUDE.md` (First run on a new PC). |
 | GPU | DX12, SM6, ray tracing | The Unreal project uses Lumen with hardware ray tracing. |
 
-Check the install before touching the capture. The self-test must print `PASS` 12 times:
+Check the install before touching the capture. Every line of the self-test must say `PASS` (15 checks):
 
 ```bash
 python tests/selftest.py
@@ -106,6 +106,28 @@ python gtb.py unreal-open Frostpunk_20260929_115750
 
 To check the 250-frame animation, run `python gtb.py unreal-render Frostpunk_20260929_115750 --anim`; frames go to `unreal/renders/anim/`.
 
+### 4b. The generator's smoke: ask the user first (editor open, about 1 min)
+
+**Ask the user which generator smoke they want before going on; don't choose for them.** The build ends by printing the choice (`GENERATOR SMOKE - ask the user ...`):
+- **(a)** the sprite column the build just made: darker puffs, lit by the fire, flames at the base.
+- **(b)** a Niagara Fluids plume: light, billowing smoke rising out of the furnace, the look the original user tuned.
+
+They can switch any time. For (a) there's nothing to do. For (b), with the editor open on the level (`gtb.py unreal-open`), run:
+
+```bash
+python -m ue.fluid_smoke Frostpunk_20260929_115750
+```
+
+It prints `GTB fluid smoke: GeneratorPlume at (-5031, -8483, -12311), ...`, hides the sprite column `SmokeColumn00`, and fills in about 30 s. Then File → Save All. Details, settings and pitfalls: [GENERATOR_SMOKE.md](GENERATOR_SMOKE.md).
+
+Switching between the two later changes visibility only:
+
+```bash
+python -m ue.fluid_smoke Frostpunk_20260929_115750 --show sprites
+```
+
+`--show fluid` switches back.
+
 ## 5. The day look
 
 ```bash
@@ -127,7 +149,7 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 - **Terrain:** the crater floor has no UVs and uses the flat `materials.ground_color`.
 - **Wood and metal:** the frosted planks of the banner stands, towers and building frames (`MI_M008`: colour `t0017`, normal `t0018`) are weathered grey-brown wood with frost. Green, orange or blue streaks mean a packed normal map is being used as colour; see step 8.
 - **Lights:** street lamps and building lights glow warm (384 game lights). The generator glows.
-- **Smoke:** chimney smoke sprites sit at the chimneys. The generator has a tall dark smoke column (Unreal only, `SmokeColumn00`). Blender's volumetric version (`smoke.enabled`) is off in both presets. Smoke puffs rise and fade in a loop in the Unreal editor.
+- **Smoke:** chimney smoke sprites sit at the chimneys. Smoke puffs rise and fade in a loop in the Unreal editor. In Unreal, after step 4b, the generator has a billowing bluish-white fluid plume (`GeneratorPlume`). It rises out of the furnace with an orange glow at its base, and thins and lightens as it climbs. It rises straight, with no sideways drift and no hard edge. Without step 4b, or after `--show sprites`, it has the sprite column instead (`SmokeColumn00`): darker and denser, lit by the fire, with flames at its base. Blender's volumetric version (`smoke.enabled`) is off in both presets.
 - **Snowfall:** flakes fall around the camera in stills and in the animation.
 - **Banners (Unreal only):** the 44 red banners (`MI_M002` → `MI_Look_Cloth`) flutter in the snow's wind. Their top part stays still.
   - Free-hanging banners (like `mesh_1004`) swing downwind with a ripple running down them.
@@ -150,6 +172,7 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 | `ue/pipeline.py` | Runs Unreal headless (commandlet, then Movie Render Queue) and writes the comparison sheets |
 | `ue/cloth_check.py` | Replays the banner flutter in numpy and reports banners that move into geometry |
 | `ue/live.py` | Pushes the banners or all material instances into the open editor (`cloth` / `materials`) |
+| `ue/fluid_smoke.py` | Builds the generator's Niagara Fluids smoke in the open editor ([GENERATOR_SMOKE.md](GENERATOR_SMOKE.md)) |
 | `ue/remote.py` | Runs a Python file inside an open Unreal editor, for live tweaks (needs Python Remote Execution turned on) |
 | `profiles/frostpunk.json`, `profiles/looks/` | Game profile, night and day looks |
 
@@ -160,4 +183,5 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 - **Green, orange or blue streaked surfaces** (or flat, texture-less ones): a normal map is being used as colour, or the other way round. Captures processed before the texture-role fix (2026-09-29) need `python gtb.py textures <capture>` once. It needs no rip and should change 4 roles on this capture. Then run `build` (close `scene.blend` first) and `unreal`, or `python -m ue.live materials <capture>` with the editor open.
 - **Unreal step fails:** read `captures/<name>/unreal/build.log`, then `build_engine.log`. For renders, read `render_stills_engine.log`.
 - **Unreal colours about a stop too bright or washed out:** the colour pass must stay before the tonemapper. See the Unreal section of `CLAUDE.md`.
+- **No generator smoke after step 4b:** give it 60–90 s if the editor isn't in focus. Then check that the sky dome has no collision (the script sets its profile to `NoCollision`) and that the three plugins are enabled. See [GENERATOR_SMOKE.md](GENERATOR_SMOKE.md), Pitfalls.
 - **Anything else:** use the lessons list in `CLAUDE.md`. Fix things in code or the profile and re-run the step, never by hand in the `.blend` or the level.

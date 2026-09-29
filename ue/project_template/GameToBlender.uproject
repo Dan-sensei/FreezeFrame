@@ -7,6 +7,9 @@
 		{"Name": "PythonScriptPlugin", "Enabled": true},
 		{"Name": "EditorScriptingUtilities", "Enabled": true},
 		{"Name": "MovieRenderPipeline", "Enabled": true},
-		{"Name": "SequencerScripting", "Enabled": true}
+		{"Name": "SequencerScripting", "Enabled": true},
+		{"Name": "NiagaraFluids", "Enabled": true},
+		{"Name": "ToolsetRegistry", "Enabled": true},
+		{"Name": "NiagaraToolsets", "Enabled": true}
 	]
 }

@@ -4,7 +4,13 @@ Pipeline: Ninja Ripper 2 frame rip of a DX11 game → `gtb/process.py` (parse .n
 
 Tested end to end on **Frostpunk 1** with Ninja Ripper 2.18, Blender 5.2 and Unreal Engine 5.8.3 (2026-09-29). Sekiro has a starting profile but no real capture yet.
 
-**To recreate the Frostpunk scene from the rip (Blender and Unreal), follow [docs/RECREATE.md](docs/RECREATE.md).** It covers `gtb.py import` → `all` → `unreal`, and lists the expected numbers at each step.
+**To recreate the Frostpunk scene from the rip (Blender and Unreal), follow [docs/RECREATE.md](docs/RECREATE.md).** It covers `gtb.py import` → `all` → `unreal`, then the generator's smoke (`python -m ue.fluid_smoke`, step 4b), and lists the expected numbers at each step. The generator smoke has its own notes: [docs/GENERATOR_SMOKE.md](docs/GENERATOR_SMOKE.md).
+
+## Ask the user first (don't decide for them)
+- **Generator smoke in Unreal: always offer the two versions and let the user choose.** Never pick one silently. Ask when you build or recreate the Unreal scene (`gtb.py unreal` and `gtb.py unreal-open` print a reminder), when you open the level, or whenever the user works on the generator or its smoke. Ask something like: *"The generator's smoke comes in two versions: (a) the sprite column that the build makes (darker puffs, lit by the fire, with flames at the base), or (b) a Niagara Fluids plume (light, billowing smoke rising out of the furnace; the look the original user tuned). Which would you like? You can switch any time."*
+  - Build the fluid with `python -m ue.fluid_smoke <capture>` (editor open).
+  - Switch with `python -m ue.fluid_smoke <capture> --show fluid|sprites` (instant, visibility only).
+  - Details are in [docs/GENERATOR_SMOKE.md](docs/GENERATOR_SMOKE.md).
 
 ## First run on a new PC
 - `captures/` and `config.json` are not in git. `config.json` is created on first run: check `blender_exe` (default `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`) and that `ripper_output_dir` ("auto") resolves to Ninja Ripper's output folder (`python gtb.py watch` prints it).
@@ -61,7 +67,17 @@ Tested with UE 5.8.3 on the same Frostpunk capture (2026-09-29): the game view i
   - A VectorParameter's default output (`""`) is RGB only. Wire `"RGBA"` when the HLSL reads `.w`, or the shader fails with `vector swizzle 'w' is out of bounds`.
   - Git Bash rewrites `/Game/...` arguments; the pipeline calls Unreal from Python, so it isn't affected.
 - Time: effects use `MPC_GTB_Time`. `SceneTime` is keyed by the sequences. `EngineTimeWeight` is 1 outside Sequencer, so the editor viewport animates. Anything that accumulates, like smoke rise, must use `SceneTime` only: the editor clock grows without limit, and sprites once ended up hundreds of metres up in the sky. Snowfall wraps, so engine time is safe for it.
-- The user wants effects to animate in the editor viewport, not sit static. The capture's puffs loop (rise and fade) while `EngineTimeWeight` is 1, using a per-puff phase in UV6. The generator's smoke column (a live render target, not in the rip) is `M_GTB_Plume`: 128 puffs from the game's biggest smoke flipbook (`t0121`, 8x8), parameters from `look.smoke`.
+- The user wants effects to animate in the editor viewport, not sit static. The capture's puffs loop (rise and fade) while `EngineTimeWeight` is 1, using a per-puff phase in UV6.
+- Generator smoke (a live render target in the game, so not in the rip) has **two versions. Always offer the user the choice** and tell them how to switch: `python -m ue.fluid_smoke <capture> --show fluid|sprites`, visibility only, instant.
+  - **fluid** (default, approved): the Niagara Fluids simulation `GeneratorPlume`. `python -m ue.fluid_smoke <capture>` builds it in the open editor; it isn't in the headless build yet.
+    - It's a copy of the **fire** template (`Grid3D_Gas_Fire`), not the smoke template. The smoke template has a world-space turbulence bias that always pushes its smoke toward −x, and it can't be edited.
+    - The source emitter's density and temperature multipliers are set with the NiagaraToolsets plugin (`unreal.ToolsetRegistry.execute_tool`). Simulation stages are out of its reach.
+    - It renders through `M_GTB_FluidGas`, a copy of `M_3DGas_Base` with `GTB_*` controls spliced in after Niagara's bindings: absolute density and colour, a height fade, the heat glow.
+    - It needs the sky dome's collision *profile* set to NoCollision; otherwise the fluid shows nothing.
+    - It needs the Heterogeneous Volume cvars in `DefaultEngine.ini`.
+    - The user judges it live in the viewport: a column from the furnace top, textured billows, rising high and spreading, a little lighter and thinner with height, colour matched to the chimney smoke (bluish white), and orange only at the base. For colour, measure the user's screenshot rather than a capture.
+  - **sprites**: the sprite column `SmokeColumn00` (`M_GTB_Plume`, 320 flipbook puffs, fire-lit, flames at the base), which `gtb.py unreal` always builds. Tune it with `look.unreal.plume` and push it with `python -m ue.live plume <capture>`.
+  - Everything, including the pitfalls and the Python routes, is in [docs/GENERATOR_SMOKE.md](docs/GENERATOR_SMOKE.md).
 - Banners (`M_GTB_Cloth`, `gtb_hlsl.CLOTH_WPO`) need no manual steps. `gtb.py unreal` builds them from a rip; `python -m ue.live cloth <capture>` pushes them into an open editor.
   - Settings: `look.unreal.cloth` over `UNREAL_DEFAULTS["cloth"]` in `ue/look.py`:
     - `ripple` 0.03 and `sway` 0.08: fractions of the banner's length at the snow's 2.5 m/s wind (`look.snow.wind` drives it).

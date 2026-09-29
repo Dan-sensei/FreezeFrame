@@ -13,10 +13,23 @@ Keys under look["unreal"] only affect Unreal; Blender ignores them:
   warmup_frames, temporal_samples     Movie Render Queue quality
   cvars            console variables for Movie Render Queue renders, e.g. {"r.Lumen.ScreenProbeGather.DownsampleFactor": 8}
   smoke_loop_seconds   editor preview loop of the game's smoke puffs (0 = static)
-  plume            smoke column: {enabled, speed (m/s), glow (furnace light), wind_drift}
+  plume            smoke column: {enabled, speed (m/s), glow (furnace light), wind_drift,
+                   detail (billow noise 0..1), shadow (underside colour, linear RGB),
+                   opacity (x look.smoke.density), puff_size (sprite width / puff radius),
+                   fire_reach (m, how far the fire lights the smoke), flame (flame brightness),
+                   flame_height (fraction of the rise that is flame), spread (sideways spread / puff radius)}
   cloth            banners flutter in the snow's wind: {ripple, sway (fractions of the cloth's
                    length, at 2.5 m/s wind), wavelength (fraction of the length; below ~0.6
                    the game's 9-row banners zigzag), speed (ripples per second)}
+  fluid_smoke      the generator's Niagara Fluids plume (python -m ue.fluid_smoke, docs/GENERATOR_SMOKE.md):
+                   {rim_above_source (cm, furnace rim above the plan's plume source), center_offset (cm, x y
+                   from the plume source to the furnace centre), source_shift (cm x y; the fire template's
+                   source mesh is lopsided: its surface centroid is 6.5 local cm off in x), depth (cm, source
+                   below the rim), scale, grid (WorldSpaceSize, local units), resolution, source_density,
+                   source_temperature (multipliers on the fire template's source), density, albedo,
+                   top_albedo, top_glow, top_density, fade_height (cm above the rim), fire_gain,
+                   light_cd, light_depth (cm below the rim; negative = above), light_radius, light_reach (cm; keeps the orange at the
+                   bottom of the plume), light_color}
 """
 import math
 
@@ -32,8 +45,19 @@ UNREAL_DEFAULTS = {"exposure_offset": 0.0, "bloom_intensity": None, "bloom_thres
                    "smoke_loop_seconds": 6.0,
                    # Smoke columns (e.g. the generator's), built from the game's smoke flipbook.
                    # Height/grow/colour/density come from look.smoke like Blender's volumetric plume.
-                   "plume": {"enabled": True, "speed": 3.0, "glow": 1.5, "wind_drift": 0.35},
-                   "cloth": {"ripple": 0.03, "sway": 0.08, "wavelength": 0.75, "speed": 0.5}}
+                   "plume": {"enabled": True, "speed": 3.0, "glow": 1.5, "wind_drift": 0.35,
+                             "detail": 1.0, "shadow": [0.13, 0.11, 0.095], "opacity": 1.0, "puff_size": 1.6,
+                             "fire_reach": 25.0, "flame": 5.0, "flame_height": 0.16, "spread": 1.0},
+                   "cloth": {"ripple": 0.03, "sway": 0.08, "wavelength": 0.75, "speed": 0.5},
+                   # Generator plume (Niagara Fluids fire template, smoke-heavy source). Tuned by eye
+                   # against the user's viewport on the Frostpunk capture (2026-09-29).
+                   "fluid_smoke": {"rim_above_source": 760.0, "center_offset": [8.0, 71.0], "source_shift": [-13.0, 0.0], "depth": 150.0, "scale": 2.0,
+                                   "grid": [700.0, 700.0, 2400.0], "resolution": 320,
+                                   "source_density": 9.0, "source_temperature": 2.5,
+                                   "density": 1.2, "albedo": [0.485, 0.727, 1.0], "top_albedo": [0.567, 0.787, 1.0],
+                                   "top_glow": 0.25, "top_density": 0.25, "fade_height": 2800.0,
+                                   "fire_gain": 0.02, "light_cd": 150.0, "light_depth": -50.0, "light_reach": 900.0, "light_radius": 150.0,
+                                   "light_color": [1.0, 0.45, 0.15]}}
 
 
 def lut_key(look):
@@ -174,9 +198,18 @@ def _plume(look, cfg, plan):
     column = max([src["column_cm"] for src in sources] or [0.0])
     return {"enabled": bool(cfg["enabled"]) and bool(sources), "sources": sources,
             "Period": (height + column) / speed, "Height": height, "Grow": sm["grow"] / CM,
-            "Drift": rl(drift) + [0.0, 0.0], "Opacity": min(1.0, 0.7 * sm["density"]),
+            "Drift": rl(drift) + [0.0, 0.0], "Opacity": min(1.0, cfg["opacity"] * sm["density"]),
+            "Detail": cfg["detail"], "ShadowColor": rl(cfg["shadow"]) + [1.0], "PuffSize": cfg["puff_size"],
+            "FireReach": cfg["fire_reach"] * CM, "FlameStrength": cfg["flame"], "FlameHeight": cfg["flame_height"],
+            "Spread": cfg["spread"],
             "SmokeColor": rl(sm["color"]) + [1.0], "Ambient": parts["ambient"],
             "NormalStrength": parts["normal_strength"], "GlowColor": rl(gl["color"]) + [1.0], "Glow": cfg["glow"]}
+
+
+def plume_params(look, plan):
+    """M_GTB_Plume's look parameters: look.unreal.plume over UNREAL_DEFAULTS."""
+    cfg = dict(UNREAL_DEFAULTS["plume"], **((look.get("unreal") or {}).get("plume") or {}))
+    return _plume(look, cfg, plan)
 
 
 def _snow(cfg, plan):
@@ -192,3 +225,16 @@ def _snow(cfg, plan):
             "FallSpeed": cfg["fall_speed"] * CM, "Flutter": cfg["flutter"] * CM, "Size": cfg["size"] * CM,
             "CountFraction": min(cfg["count"] / SNOW_MAX_FLAKES, 1.0), "Opacity": cfg["opacity"],
             "Brightness": cfg["brightness"], "seed": cfg["seed"]}
+
+
+def fluid_smoke_params(look, plan):
+    """The generator plume's settings (look.unreal.fluid_smoke over UNREAL_DEFAULTS) and where it goes:
+    the centre of the furnace rim, rim_above_source above the plan's plume source (the lowest puff of
+    the game's smoke column) and center_offset beside it, in Unreal cm."""
+    cfg = dict(UNREAL_DEFAULTS["fluid_smoke"], **((look.get("unreal") or {}).get("fluid_smoke") or {}))
+    plumes = (plan.get("plume") or {}).get("plumes") or []
+    if not plumes:
+        return None
+    x, y, z = plumes[0]["location"]
+    dx, dy = cfg["center_offset"]
+    return dict(cfg, rim=[x + dx, y + dy, z + cfg["rim_above_source"]])

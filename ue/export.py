@@ -449,7 +449,7 @@ def write_snowfall(path: Path, count=SNOW_MAX_FLAKES, seed=1):
     w.save(path)
 
 
-def write_plume(path: Path, frames, count=128, seed=7):
+def write_plume(path: Path, frames, count=320, seed=7):
     """Puff quads for a rising smoke column (M_GTB_Plume places them from time).
       UV0 flipbook frame (glTF/Unreal v)   UV1 (phase 0..1, spin angle)
       UV2 lateral jitter (-1..1)            UV3 corner (+-0.5, Blender v up)"""

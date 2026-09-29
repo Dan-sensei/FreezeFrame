@@ -279,12 +279,33 @@ def compare_all(cfg, cap, look, files):
 
 # --------------------------------------------------------------------------- commands
 
+def smoke_choice_notice(cap, plan=None):
+    """The generator smoke has two versions; whoever runs this (often Claude) must ask the user
+    which one they want, not pick one (docs/GENERATOR_SMOKE.md)."""
+    if plan is None:
+        path = cap / "unreal" / "plan.json"
+        plan = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    if not (plan.get("plume") or {}).get("plumes"):
+        return
+    n = cap.name
+    for line in ("GENERATOR SMOKE - ask the user which version they want (don't choose for them):",
+                 "  a) sprite column (in the level now, SmokeColumn00): darker flipbook puffs, lit by the fire, "
+                 "flames at the base",
+                 "  b) Niagara Fluids plume (the look the original user approved): light, billowing smoke rising "
+                 "out of the furnace",
+                 f"     with the editor open (python gtb.py unreal-open {n}): python -m ue.fluid_smoke {n}",
+                 f"  switch any time, instantly: python -m ue.fluid_smoke {n} --show fluid|sprites"
+                 "   (docs/GENERATOR_SMOKE.md)"):
+        print("[ue] " + line)
+
+
 def cmd_unreal(cfg, cap, do_render=True):
-    ue_export.export(cap)
+    plan = ue_export.export(cap)
     look, _ = write_look(cfg, cap)
     run_editor(cfg, cap, "build")
     if do_render:
         compare_all(cfg, cap, look, render(cfg, cap))
+    smoke_choice_notice(cap, plan)
 
 
 def cmd_look(cfg, cap, do_render=True):
@@ -333,3 +354,4 @@ def cmd_calibrate(cfg, cap, rounds=4):
 def cmd_open(cfg, cap):
     proj, _ = ensure_project(cfg)
     subprocess.Popen([str(find_unreal(cfg, gui=True)), str(proj), f"/Game/GTB/{cap.name}/{cap.name}"])
+    smoke_choice_notice(cap)

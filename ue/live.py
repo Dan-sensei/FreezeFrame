@@ -4,6 +4,7 @@ the editor closed. Changes go into one undo transaction and stay unsaved.
 
     python -m ue.live cloth <capture>       banners: M_GTB_Cloth, MI_Look_Cloth, each banner's room
     python -m ue.live materials <capture>   every material instance and texture import kind
+    python -m ue.live plume <capture>       the smoke column: M_GTB_Plume and MI_Look_Plume from look.json
 
 Both re-export the capture's Unreal plan first, so the editor gets what the
 code produces now. The capture's level must be the one open in the editor.
@@ -21,7 +22,7 @@ sys.path.insert(0, str(ROOT))
 from gtb import config  # noqa: E402
 from gtb.scene_common import load_look  # noqa: E402
 from ue.export import export  # noqa: E402
-from ue.look import cloth_params  # noqa: E402
+from ue.look import cloth_params, plume_params  # noqa: E402
 from ue.remote import run  # noqa: E402
 
 CLOTH = r'''
@@ -76,6 +77,63 @@ with unreal.ScopedEditorTransaction("GTB: banners"):
                 c.set_default_custom_primitive_data_vector4(i, unreal.Vector4(*v[i:i + 4]))
             n += 1
     print(f"GTB live: {len(D['materials'])} banner material(s), room on {n} of {len(D['room'])} banner(s)")
+'''
+
+PLUME = r'''
+import sys, importlib, json, unreal
+D = json.loads(DATA)
+sys.path.insert(0, D["editor_dir"])
+import gtb_hlsl, gtb_materials
+importlib.reload(gtb_hlsl); importlib.reload(gtb_materials)
+MEL, EAL = unreal.MaterialEditingLibrary, unreal.EditorAssetLibrary
+SHARED, CAP = "/Game/GTB/Shared", D["content"]
+def mesh_options():                                  # as gtb_ue.mesh_import_options
+    p = unreal.InterchangeGenericAssetsPipeline()
+    c = p.get_editor_property("common_meshes_properties")
+    for k, v in {"recompute_normals": False, "recompute_tangents": True, "use_mikk_t_space": True,
+                 "use_full_precision_u_vs": True, "remove_degenerates": False, "import_lods": False,
+                 "bake_meshes": True, "force_all_mesh_as_type": unreal.InterchangeForceMeshType.IFMT_STATIC_MESH}.items():
+        c.set_editor_property(k, v)
+    m = p.get_editor_property("mesh_pipeline")
+    for k, v in {"import_static_meshes": True, "import_skeletal_meshes": False, "generate_lightmap_u_vs": False,
+                 "build_nanite": False, "collision": False, "generate_distance_field_as_if_two_sided": True}.items():
+        m.set_editor_property(k, v)
+    mp = p.get_editor_property("material_pipeline")
+    mp.set_editor_property("import_materials", False)
+    mp.get_editor_property("texture_pipeline").set_editor_property("import_textures", False)
+    stack = unreal.InterchangePipelineStackOverride()
+    stack.add_pipeline(p)
+    return stack
+with unreal.ScopedEditorTransaction("GTB: smoke column"):
+    if D.get("glb"):                                 # the puffs (count, frames) come from the export
+        t = unreal.AssetImportTask()
+        t.set_editor_properties({"filename": D["glb"], "destination_path": f"{CAP}/Meshes", "automated": True,
+                                 "save": False, "replace_existing": True, "options": mesh_options()})
+        unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([t])
+        pm = EAL.load_asset(f"{CAP}/Meshes/SM_Plume")
+        for k in ("positive_bounds_extension", "negative_bounds_extension"):
+            pm.set_editor_property(k, unreal.Vector(1e5, 1e5, 1e5))
+        print("GTB live: SM_Plume re-imported,", pm.get_num_triangles(0) // 2, "puffs")
+    defaults = {k: unreal.load_asset(f"{SHARED}/T_GTB_{n}") for k, n in
+                (("color", "DefaultColor"), ("linear", "DefaultLinear"), ("lut", "DefaultLut"))}
+    mat = EAL.load_asset(f"{SHARED}/M_GTB_Plume")
+    gtb_materials.build_plume(mat, defaults, unreal.load_asset(f"{SHARED}/MPC_GTB_Time"))
+    MEL.layout_material_expressions(mat)
+    MEL.recompile_material(mat)
+    EAL.set_metadata_tag(mat, "gtb_version", gtb_materials.MASTER_VERSION)
+    st = MEL.get_statistics(mat)
+    ok = st.num_vertex_shader_instructions > 0 and st.num_pixel_shader_instructions > 0
+    print("GTB live: plume master built, " + (f"compiles ({st.num_vertex_shader_instructions} VS / "
+          f"{st.num_pixel_shader_instructions} PS instructions)" if ok else
+          "SHADER COMPILE FAILED: the smoke column will vanish; see the editor's Output Log"))
+    look = EAL.load_asset(f"{CAP}/Materials/MI_Look_Plume")
+    look.modify()
+    for k, v in D["params"].items():
+        if isinstance(v, list):
+            MEL.set_material_instance_vector_parameter_value(look, k, unreal.LinearColor(*(list(v) + [0.0] * 4)[:4]))
+        else:
+            MEL.set_material_instance_scalar_parameter_value(look, k, float(v))
+    print("GTB live: MI_Look_Plume set:", sorted(D["params"]))
 '''
 
 MATERIALS = r'''
@@ -134,7 +192,7 @@ def _send(template, data):
 
 
 def main():
-    if len(sys.argv) != 3 or sys.argv[1] not in ("cloth", "materials"):
+    if len(sys.argv) != 3 or sys.argv[1] not in ("cloth", "materials", "plume"):
         sys.exit(__doc__)
     cfg = config.load()
     cap = Path(sys.argv[2])
@@ -143,6 +201,13 @@ def main():
     plan = export(cap)
     base = {"content": f"/Game/GTB/{cap.name}", "editor_dir": str(ROOT / "ue" / "editor"),
             "textures_dir": plan["textures_dir"]}
+    if sys.argv[1] == "plume":
+        pp = plume_params(load_look(cap / "look.json"), plan)
+        params = {k: pp[k] for k in ("Period", "Height", "Grow", "Opacity", "Ambient", "NormalStrength", "Glow",
+                                     "Detail", "PuffSize", "FireReach", "FlameStrength", "FlameHeight", "Spread",
+                                     "Drift", "SmokeColor", "GlowColor", "ShadowColor")}
+        print(_send(PLUME, dict(base, params=params, glb=(plan.get("plume") or {}).get("glb"))), end="")
+        return
     if sys.argv[1] == "materials":
         print(_send(MATERIALS, dict(base, textures=plan["textures"], materials=plan["materials"])), end="")
         return

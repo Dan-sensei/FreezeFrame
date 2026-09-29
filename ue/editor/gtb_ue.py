@@ -332,6 +332,11 @@ def build_level(plan, cap_name, meshes, mis, look_mis, snow_mesh, defaults):
     dc = dome.static_mesh_component
     dc.set_material(0, look_mis["sky"])
     dc.set_cast_shadow(False)
+    # A backdrop only. The engine sphere's collision enclosed the whole scene, and
+    # Niagara Fluids treated everything inside it as solid: the gas vanished. Set the
+    # profile, not just the flag: the BlockAll profile re-applies itself on load.
+    dc.set_collision_profile_name("NoCollision")
+    dc.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
     for k in ("affect_dynamic_indirect_lighting", "affect_distance_field_lighting", "visible_in_ray_tracing"):
         setp(dc, k, False)
     ppv = spawn(unreal.PostProcessVolume, "PostProcess", "Lighting")
@@ -371,8 +376,9 @@ def apply_look(look, plan, cap, look_mis, defaults):
     set_params(look_mis["fire"], dict(common, FireStrength=p["FireStrength"], LoopSeconds=0.0))
     pl = look["plume"]
     set_params(look_mis["plume"], {k: pl[k] for k in ("Period", "Height", "Grow", "Opacity", "Ambient",
-                                                        "NormalStrength", "Glow")},
-               {k: pl[k] for k in ("Drift", "SmokeColor", "GlowColor")})
+                                                        "NormalStrength", "Glow", "Detail", "PuffSize",
+                                                        "FireReach", "FlameStrength", "FlameHeight", "Spread")},
+               {k: pl[k] for k in ("Drift", "SmokeColor", "GlowColor", "ShadowColor")})
     sn = look["snow"]
     set_params(look_mis["snowfall"], {k: sn[k] for k in ("FollowCamera", "FallSpeed", "Flutter", "Size",
                                                           "CountFraction", "Opacity", "Brightness")},

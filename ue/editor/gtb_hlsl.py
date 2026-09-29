@@ -257,8 +257,8 @@ float u = frac(T / Period + P1.x);
 float h = (Column + Height) * u;
 float r = Radius * (1.0 + Grow * h);
 float2 cs = float2(cos(P1.y), sin(P1.y));
-float2 c = float2(Corner.x * cs.x - Corner.y * cs.y, Corner.x * cs.y + Corner.y * cs.x) * r * 2.4;
-float3 centre = Base + float3(P2.xy * r * 0.45 + Drift.xy * h, h);
+float2 c = float2(Corner.x * cs.x - Corner.y * cs.y, Corner.x * cs.y + Corner.y * cs.x) * r * PuffSize;
+float3 centre = Base + float3(P2.xy * r * Spread + Drift.xy * h, h);
 return centre + c.x * CamR + c.y * CamU - WorldPos;
 """
 
@@ -342,22 +342,56 @@ off.z = dot(off.xy, off.xy) / (2.0 * max(d * len, 1.0)) * (1.0 - held);
 return off;
 """
 
-PLUME = r"""
+# Shading of the smoke column, after the game's burning generator seen from below:
+# many billows, each lit by the fire at the vent (Base) on the side facing it and
+# charcoal elsewhere, with the youngest puffs being the flames themselves.
+# - fBm noise (in the puff's own frame, UV3 = corner) erodes the flipbook shape
+#   into a crisp cauliflower silhouette and bumps its normal;
+# - fire light: facing the vent x exp(-distance / FireReach), on a lighter
+#   scattering albedo; a flat glow keyed on world-down normals lit every puff
+#   the same when seen from below;
+# - body: ShadowColor..SmokeColor by up-facing and noise hollows, per-puff shade;
+# - flames: puffs younger than FlameHeight of the rise, flickering with the noise.
+PLUME = NOISE + r"""
+GTBNoise nz;
 float4 a = Texture2DSample(Atlas, AtlasSampler, UV);
 float u = frac(T / Period + P1.x);
-float fade = saturate(u / 0.06) * saturate((1.0 - u) / 0.55);
-Alpha = min(a.a * VColorA * Opacity * fade, 1.0);
+float fade = saturate(u / 0.03) * saturate((1.0 - u) / 0.5);
+float r1 = frac(sin(P1.x * 127.1 + P1.y * 311.7) * 43758.5453);
+float3 np = float3(Corner * 4.0 / (0.8 + 0.4 * u), P1.x * 37.0 + T * 0.05);
+float n = nz.Fbm(np, 3);
+float e = 0.04;
+float gx = (nz.Fbm(np + float3(e, 0.0, 0.0), 3) - n) / e;
+float gy = (nz.Fbm(np + float3(0.0, e, 0.0), 3) - n) / e;
+float shape = a.a * (1.0 + Detail * (n - 0.5) * 2.0);
+float dens = smoothstep(0.12, 0.45, shape) * smoothstep(0.5, 0.36, length(Corner));   // big frames fill their tile: fade out before the quad's edge
+Alpha = min(dens * VColorA * Opacity * fade, 1.0);
 float2 cs = float2(cos(P1.y), sin(P1.y));
-float xs = a.r * 2.0 - 1.0;
-float ys = a.g * 2.0 - 1.0;
+float xs = a.r * 2.0 - 1.0 - gx * 0.25 * Detail;
+float ys = a.g * 2.0 - 1.0 - gy * 0.25 * Detail;
 float zs = sqrt(max(1.0 - xs * xs - ys * ys, 0.0));
 float3 nf = -CamF;
 float3 tw = cs.x * CamR + cs.y * CamU;
 float3 bw = -cs.y * CamR + cs.x * CamU;
-WorldN = normalize(lerp(nf, normalize(xs * tw + ys * bw + zs * nf), NormalStrength));
-// Furnace light on the smoke just above the vent.
-Emis = SmokeColor.rgb * Ambient + GlowColor.rgb * Glow * pow(saturate(1.0 - u * 5.0), 2.0);
-return SmokeColor.rgb;
+float3 N = normalize(lerp(nf, normalize(xs * tw + ys * bw + zs * nf), NormalStrength));
+WorldN = N;
+float up = saturate(0.5 + 0.5 * N.z);
+float cav = saturate(0.3 + n);
+float3 base = lerp(ShadowColor.rgb, SmokeColor.rgb, smoothstep(0.25, 0.95, up * cav)) * (0.5 + 0.8 * r1);
+float3 toFire = Base - WorldPos;
+float dist = length(toFire);
+// Seen from below nearly every lump faces the fire, so the light also needs the
+// lumps themselves (noise peaks) and a hard fall-off with facing to vary.
+float facing = pow(saturate(dot(N, toFire / max(dist, 1.0))), 1.5);
+float lump = 0.2 + smoothstep(0.4, 0.75, n);
+float3 fireLight = GlowColor.rgb * Glow * facing * lump * exp(-dist / max(FireReach, 1.0)) * lerp(0.3, 0.9, cav);
+float flame = (1.0 - smoothstep(0.0, max(FlameHeight, 0.001), u)) * saturate(n * 1.6 - 0.2);
+// Flames are light, not lit smoke: no grey body under them (it washed the fire out
+// to beige); saturated orange at the edges, yellow only where hottest.
+float3 flameCol = lerp(float3(1.0, 0.3, 0.05), float3(1.0, 0.72, 0.28), smoothstep(0.35, 0.9, flame)) * FlameStrength * flame;
+base *= 1.0 - saturate(flame * 1.5);
+Emis = base * Ambient + fireLight * (1.0 - saturate(flame * 1.5)) + flameCol;
+return base;
 """
 
 # snow_node_group: flakes as a pure function of time, wrapped in a box that
