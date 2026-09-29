@@ -113,8 +113,22 @@ def assign_slots(mesh_tex, textures, profile):
     # No colour texture: a large grayscale one is most likely a desaturated
     # albedo (metal, stone) rather than a roughness map, which would come
     # alongside a colour texture. Only after that fall back to a packed one.
+    # Exception: when that grayscale map is the material's only texture and is
+    # mostly black, it is a mask over a colour the shader computes (Frostpunk's
+    # frost streaks on the snow plateau), not a base colour. It becomes a "mask"
+    # (not wired), so the material keeps the constant ground/snow colour.
+    # Also a mask: a bright map whose edges fade to black (a stamped terrain
+    # snow/height blend) - tiling base colours look the same at the edges.
     if "albedo" not in slots and "gray" in slots and (slots["gray"].get("size") or [0])[0] >= 512:
-        slots["albedo"] = dict(slots.pop("gray"), role="albedo")
+        d = slots["gray"].get("details", {})
+        mean = d.get("mean_rgb") or [1.0]
+        mean = sum(mean) / len(mean)
+        border = d.get("border_mean")
+        stamped = border is not None and border < 0.05 and mean > 0.15
+        if (len(slots) == 1 and mean < 0.1) or stamped:
+            slots["mask"] = dict(slots.pop("gray"), role="mask")
+        else:
+            slots["albedo"] = dict(slots.pop("gray"), role="albedo")
     if "albedo" not in slots and "albedo" not in slot_roles.values():
         for role in ("packed",) + tuple(r for r in slots if r.startswith("extra")):
             if role in slots and slots[role]["role"] in ("packed", "albedo"):

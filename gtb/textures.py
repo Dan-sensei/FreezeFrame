@@ -157,6 +157,13 @@ def convert(src: Path, dst_dir: Path):
         details["alpha_mean"], details["alpha_std"] = round(float(a.mean()), 4), round(float(a.std()), 4)
     rgb = arr[..., :3] if arr.shape[-1] >= 3 else np.repeat(arr[..., :1], 3, -1)
     details["mean_rgb"] = [round(float(x), 4) for x in rgb.reshape(-1, 3)[::97].mean(0)]
+    if role == "gray":
+        # Brightness along the edges: tiling materials look the same there as inside,
+        # while stamped masks (terrain snow/height blends) fade to black.
+        g = rgb.mean(-1)
+        k = max(1, min(g.shape) // 64)
+        edge = np.concatenate([g[:k].ravel(), g[-k:].ravel(), g[:, :k].ravel(), g[:, -k:].ravel()])
+        details["border_mean"] = round(float(edge.mean()), 4)
     out = dst_dir / (src.stem + (".exr" if role == "hdr" else ".png"))
     if cached and out.suffix == ".png":
         return {"source": str(src), "file": out.name, "role": role, "details": details, "info": info,

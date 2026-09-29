@@ -202,6 +202,8 @@ def build_materials(plan, cap, masters, textures):
     mis = {}
     for m in plan["materials"]:
         mi = material_instance(m["name"], mdir, look_mis[m["parent"]])
+        # Names are reused across rebuilds; drop the previous material's overrides.
+        unreal.MaterialEditingLibrary.clear_all_material_instance_parameters(mi)
         tex = {k: textures[spec["file"]] for k, spec in m["textures"].items()}
         set_params(mi, m.get("scalars"), m.get("vectors"), tex)
         mis[m["name"]] = mi

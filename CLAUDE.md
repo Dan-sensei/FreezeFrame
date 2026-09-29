@@ -33,6 +33,7 @@ Tested end to end on **Frostpunk 1** with Ninja Ripper 2.18 and Blender 5.2 (202
 - In-world UI (building icons): pre-VS layout `COLOR0,POSITION0,TEXCOORD0` → skip.
 - Particles: layout `POSITION0,COLOR0,TEXCOORD0,TEXCOORD1,COLOR1,NORMAL0` = smoke/steam flipbooks (RGB = normal map, A = shape) + fire flipbooks + snow specks. Rebuilt as camera-facing sprites; specks dropped (the procedural snowfall replaces them).
 - Materials: albedo alpha is a **mask, not opacity**; normals packed in A+G (R ≈ roughness); one engine-wide snow texture is bound to most shaders (auto-detected as "shared" and ignored). Meshes whose *only* texture is that one are snow drifts, which get a snow material. Terrain has no UVs and gets a flat colour. Shader families order slots differently, so there are no fixed slot numbers.
+- Some grayscale maps are masks for colours the shader computes, not base colours. One is the snow plateau's frost streaks (the only texture, mostly black). The others are cliff-top snow blends (bright, fading to black at the edges; `details.border_mean`). `assign_slots` marks them `mask`, so those surfaces get the ground/snow colour. Before this fix they rendered as black-and-white leopard spots.
 - The game adds roof snow in-shader, so we use `add_surface_snow` (`materials.snow_cover` / `snow_threshold`).
 - Looks: `profiles/looks/frostpunk_night.json` (tuned to the capture screenshot, auto-exposure) and `frostpunk_day.json` (tuned by eye to an official day screenshot; `calibrate: false`). Apply with `python gtb.py look latest frostpunk_day`.
 
