@@ -19,7 +19,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from gtb.scene_common import assign_slots, srgb_to_linear  # noqa: E402
+from gtb.scene_common import assign_slots, packed_channels, srgb_to_linear  # noqa: E402
 from ue.gltf import GlbWriter, blender_to_gltf  # noqa: E402
 
 CM = 100.0               # Blender metres -> Unreal centimetres
@@ -247,8 +247,8 @@ def surface_material(slots, profile, has_uv):
         # Blender flips green for DirectX-style maps; Unreal expects that style already.
         sc["NormalFlipGreen"] = 0.0 if profile.get("normal_flip_green", True) else 1.0
         if channels == "AG":
-            _channel_targets({k: v for k, v in profile.get("normal_packed_channels", {}).items() if k in "RB"},
-                             "Normal", sc, vec)
+            _channel_targets(packed_channels({k: v for k, v in profile.get("normal_packed_channels", {}).items()
+                                              if k in "RB"}, normal), "Normal", sc, vec)
     gray = slots.get("gray")
     if gray:
         tex["Gray"] = texture_spec(gray, "linear")
@@ -258,7 +258,7 @@ def surface_material(slots, profile, has_uv):
     if packed and profile.get("packed_channels"):
         tex["Packed"] = texture_spec(packed, "linear")
         sc["UsePacked"] = 1.0
-        _channel_targets(profile["packed_channels"], "Packed", sc, vec)
+        _channel_targets(packed_channels(profile["packed_channels"], packed), "Packed", sc, vec)
     emissive = slots.get("emissive")
     if emissive:
         tex["Emissive"] = texture_spec(emissive, "albedo")

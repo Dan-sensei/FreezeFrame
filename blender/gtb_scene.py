@@ -24,7 +24,7 @@ import numpy as np
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from gtb.scene_common import DEFAULT_LOOK, assign_slots, deep_merge, load_look, srgb_to_linear  # noqa: E402,F401
+from gtb.scene_common import DEFAULT_LOOK, assign_slots, deep_merge, load_look, packed_channels, srgb_to_linear  # noqa: E402,F401
 
 PARAMS_GROUP = "GTB_Params"
 
@@ -227,7 +227,7 @@ def build_material(name, slots, tex_dir: Path, profile, has_uv=True):
         # Engines that pack the normal into A+G often put masks in R and B.
         if channels == "AG":
             names = {"R": "Red", "B": "Blue"}
-            for ch, target in profile.get("normal_packed_channels", {}).items():
+            for ch, target in packed_channels(profile.get("normal_packed_channels", {}), normal).items():
                 src = sep.outputs[names[ch]]
                 if target.startswith("1-"):
                     target, src = target[2:], math_node(nt, "SUBTRACT", 1.0, src)
@@ -260,7 +260,7 @@ def build_material(name, slots, tex_dir: Path, profile, has_uv=True):
         sep.location = (-400, y + 300)
         nt.links.new(t.outputs["Color"], sep.inputs[0])
         names = {"R": "Red", "G": "Green", "B": "Blue"}
-        for ch, target in profile.get("packed_channels", {}).items():
+        for ch, target in packed_channels(profile.get("packed_channels", {}), packed).items():
             src = t.outputs["Alpha"] if ch == "A" else sep.outputs[names[ch]]
             if target.startswith("1-"):
                 target, src = target[2:], math_node(nt, "SUBTRACT", 1.0, src)

@@ -82,6 +82,24 @@ def srgb_to_linear(c):
     return [x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
 
 
+def packed_channels(mapping, entry):
+    """The profile's channel map for a packed texture (e.g. {"R": "Roughness"}),
+    minus a roughness channel that would make the whole surface a perfect
+    mirror: 0 everywhere as roughness (or 1 everywhere as gloss) is the packer's
+    fill for an unused channel, not data. Frostpunk's banner normal map (t0006)
+    has R = 0, which mirrored the game lights as sharp orange streaks; those
+    surfaces get the look's default roughness instead. Shared by both engines."""
+    mean = ((entry or {}).get("details") or {}).get("mean_rgb") or []
+    out = {}
+    for ch, target in mapping.items():
+        i = "RGB".find(ch)
+        m = mean[i] if 0 <= i < len(mean) else None
+        if m is not None and ((target == "Roughness" and m < 0.02) or (target == "1-Roughness" and m > 0.98)):
+            continue
+        out[ch] = target
+    return out
+
+
 def assign_slots(mesh_tex, textures, profile):
     """Pick one texture per role for a draw call; profile slot map wins."""
     slot_roles = {str(k): v for k, v in profile.get("slot_roles", {}).items()}

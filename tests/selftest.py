@@ -63,7 +63,11 @@ slot_tex = {f"t{i}": {"role": "albedo", "details": {}} for i in range(4)}
 slot_tex.update({f"n{i}": {"role": "normal", "details": {"channels": "AG"}} for i in range(4)})
 slot_tex["n3"] = {"role": "albedo", "details": {}}                      # a normal taken for an albedo
 textures.slot_consensus([("ps", {"0": f"t{i}", "1": f"n{i}"}) for i in range(4)], slot_tex)
+from gtb.scene_common import packed_channels  # noqa: E402
+flat_r = {"details": {"mean_rgb": [0.0, 0.51, 0.0]}}                  # Frostpunk banner normal map t0006
 checks.update({
+    "materials: an all-zero roughness channel is not a mirror": packed_channels({"R": "Roughness"}, flat_r) == {}
+    and packed_channels({"R": "Roughness"}, {"details": {"mean_rgb": [0.7, 0.5, 0.1]}}) == {"R": "Roughness"},
     "textures: flat A+G normal is a normal": textures.classify(flat_ag, None) == ("normal", {"channels": "AG"}),
     "textures: slot consensus fixes a lone albedo in a normal slot": slot_tex["n3"]["role"] == "normal"
     and slot_tex["n3"]["details"].get("channels") == "AG" and slot_tex["t3"]["role"] == "albedo",
