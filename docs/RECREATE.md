@@ -29,7 +29,7 @@ Without the rip, nothing about the scene can be recreated. The code, the profile
 | Ninja Ripper | 2.18 | Only needed for new captures. Settings are in `CLAUDE.md` (First run on a new PC). |
 | GPU | DX12, SM6, ray tracing | The Unreal project uses Lumen with hardware ray tracing. |
 
-Check the install before touching the capture. Every line of the self-test must say `PASS` (15 checks):
+Check the install before touching the capture. Every line of the self-test must say `PASS` (20 checks):
 
 ```bash
 python tests/selftest.py
