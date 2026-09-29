@@ -198,7 +198,7 @@ def blender_reference(cfg, cap, look):
     Reads scene.blend without saving it."""
     bdir = (cap / "unreal" / "blender").resolve()
     bdir.mkdir(parents=True, exist_ok=True)
-    key = json.dumps(look, sort_keys=True)
+    key = json.dumps({k: v for k, v in look.items() if k != "unreal"}, sort_keys=True)   # Blender ignores "unreal"
     if (bdir / "look.key").exists() and (bdir / "look.key").read_text() == key and (bdir / "game.png").exists():
         return bdir
     if not (cap / "scene.blend").exists():

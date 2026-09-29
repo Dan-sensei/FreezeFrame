@@ -538,7 +538,7 @@ def make_sequence(name, path, cuts, frames, fps, mpc, t0, t1):
     return seq
 
 
-def make_config(name, path, out_dir, res, temporal, warmup, file_format):
+def make_config(name, path, out_dir, res, temporal, warmup, file_format, cvars=None):
     full = f"{path}/{name}"
     if EAL.does_asset_exist(full):
         EAL.delete_asset(full)
@@ -558,6 +558,13 @@ def make_config(name, path, out_dir, res, temporal, warmup, file_format):
                  "engine_warm_up_count": warmup, "render_warm_up_count": 32, "render_warm_up_frames": True}.items():
         setp(aa, k, v)
     cfg.find_or_add_setting_by_class(unreal.MoviePipelineGameOverrideSetting)
+    if cvars:
+        cv = cfg.find_or_add_setting_by_class(unreal.MoviePipelineConsoleVariableSetting)
+        for k, v in cvars.items():
+            try:
+                cv.add_or_update_console_variable(k, float(v))
+            except Exception as e:  # noqa: BLE001
+                warn(f"cvar {k}: {e}")
     EAL.save_loaded_asset(cfg)
     return cfg
 
@@ -577,9 +584,9 @@ def build_render_setup(plan, look, cap, mpc):
     res = (int(round(w * r["preview_scale"])), int(round(h * r["preview_scale"])))
     out = os.path.join(plan["capture_dir"], "unreal", "renders")
     make_config("MRQ_Stills", rdir, os.path.join(out, "stills"), res, r["temporal_samples"], r["warmup_frames"],
-                "{camera_name}")
+                "{camera_name}", r.get("cvars"))
     make_config("MRQ_Anim", rdir, os.path.join(out, "anim"), res, max(1, r["temporal_samples"] // 2), 32,
-                "frame.{frame_number}")
+                "frame.{frame_number}", r.get("cvars"))
     log(f"render setup: stills {views} at {res[0]}x{res[1]}, anim {frames} frames")
 
 

@@ -11,6 +11,7 @@ Keys under look["unreal"] only affect Unreal; Blender ignores them:
   exposure_offset  stops added before the view transform (Unreal calibration)
   bloom_intensity / bloom_threshold   override the mapped bloom
   warmup_frames, temporal_samples     Movie Render Queue quality
+  cvars            console variables for Movie Render Queue renders, e.g. {"r.Lumen.ScreenProbeGather.DownsampleFactor": 8}
 """
 import math
 
@@ -21,7 +22,7 @@ from ue.export import CM, dir_to_ue, to_ue
 
 LUT_SIZE, LUT_LO, LUT_HI = 64, -12.0, 8.0
 UNREAL_DEFAULTS = {"exposure_offset": 0.0, "bloom_intensity": None, "bloom_threshold": None,
-                   "warmup_frames": 64, "temporal_samples": 8, "anim_frames": 250, "fps": 24}
+                   "warmup_frames": 64, "temporal_samples": 8, "anim_frames": 250, "fps": 24, "cvars": {}}
 
 
 def lut_key(look):
@@ -119,7 +120,7 @@ def ue_look(look, plan, lut_path):
         "snow": _snow(snow, plan),
         "render": {"preview_scale": r["preview_scale"], "resolution": plan["camera"]["resolution"],
                    "warmup_frames": u["warmup_frames"], "temporal_samples": u["temporal_samples"],
-                   "anim_frames": u["anim_frames"], "fps": u["fps"]},
+                   "anim_frames": u["anim_frames"], "fps": u["fps"], "cvars": u["cvars"]},
         "smoke_volumes": look["smoke"]["enabled"],
     }
     return out

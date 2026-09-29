@@ -218,8 +218,7 @@ float3 bw = normalize(Bit.x * CamR + Bit.y * CamU + 1e-6);
 float3 n = normalize(xs * tw + ys * bw + zs * nf);
 WorldN = normalize(lerp(nf, n, NormalStrength));
 Emis = SmokeColor.rgb * Ambient;
-Sub = SmokeColor.rgb * Translucency;
-return SmokeColor.rgb * (1.0 - Translucency);
+return SmokeColor.rgb;
 """
 
 FIRE = r"""
@@ -249,10 +248,12 @@ float2 c = (Corner - 0.5) * 2.0 * r;
 return p + c.x * CamR - c.y * CamU - WorldPos;
 """
 
-# snow_material: soft round flake.
+# snow_material: soft round flake. Flakes right in front of the lens would
+# fill the frame with a blurry disc, so they fade out within NearFade.
 SNOW_ALPHA = r"""
 float fall = saturate((0.5 - length(UV - 0.5)) / 0.5);
-return pow(fall, 1.6) * Opacity;
+float near = saturate(length(WorldPos - CamPos) / max(NearFade, 1.0) - 0.5);
+return pow(fall, 1.6) * Opacity * near;
 """
 
 # Blender's compositor grade + view transform, baked by ue/blender_lut.py.

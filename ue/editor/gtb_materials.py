@@ -15,7 +15,7 @@ F1, F2, F3, F4 = (unreal.CustomMaterialOutputType.CMOT_FLOAT1, unreal.CustomMate
                   unreal.CustomMaterialOutputType.CMOT_FLOAT3, unreal.CustomMaterialOutputType.CMOT_FLOAT4)
 
 # Bump when a master graph changes: existing masters are rebuilt in place.
-MASTER_VERSION = "3"
+MASTER_VERSION = "5"
 
 
 class Graph:
@@ -178,7 +178,7 @@ def _sprite_wpo(g):
 
 def build_smoke(mat, defaults, mpc):
     _reset(mat, two_sided=True, blend_mode=unreal.BlendMode.BLEND_TRANSLUCENT,
-           shading_model=unreal.MaterialShadingModel.MSM_TWO_SIDED_FOLIAGE,
+           shading_model=unreal.MaterialShadingModel.MSM_DEFAULT_LIT,
            translucency_lighting_mode=unreal.TranslucencyLightingMode.TLM_SURFACE_PER_PIXEL_LIGHTING,
            tangent_space_normal=False)
     g = Graph(mat, mpc)
@@ -190,12 +190,11 @@ def build_smoke(mat, defaults, mpc):
         "Opacity": g.scalar("Opacity", 0.7, "Look"), "NormalStrength": g.scalar("NormalStrength", 1.0, "Look"),
         "SmokeColor": g.vector("SmokeColor", (0.45, 0.48, 0.57, 1), "Look"),
         "Ambient": g.scalar("Ambient", 0.25, "Look"), "Translucency": g.scalar("Translucency", 0.6, "Look"),
-    }, F3, {"Alpha": F1, "WorldN": F3, "Emis": F3, "Sub": F3}, desc="GTB Smoke")
+    }, F3, {"Alpha": F1, "WorldN": F3, "Emis": F3}, desc="GTB Smoke")
     g.out(c, "", MP.MP_BASE_COLOR)
     g.out(c, "Alpha", MP.MP_OPACITY)
     g.out(c, "WorldN", MP.MP_NORMAL)
     g.out(c, "Emis", MP.MP_EMISSIVE_COLOR)
-    g.out(c, "Sub", MP.MP_SUBSURFACE_COLOR)
     for name, v in (("Roughness", 1.0), ("Specular", 0.0)):
         k = g.node(unreal.MaterialExpressionConstant, r=v)
         g.out(k, "", getattr(MP, f"MP_{name.upper()}"))
@@ -234,7 +233,10 @@ def build_snowfall(mat, defaults, mpc):
         "Count": g.scalar("CountFraction", 0.6, "Look"),
     }, F3, desc="GTB Snowfall")
     g.out(wpo, "", MP.MP_WORLD_POSITION_OFFSET)
-    a = g.custom(hlsl.SNOW_ALPHA, {"UV": g.texcoord(0), "Opacity": g.scalar("Opacity", 0.85, "Look")},
+    a = g.custom(hlsl.SNOW_ALPHA, {"UV": g.texcoord(0), "Opacity": g.scalar("Opacity", 0.85, "Look"),
+                                   "WorldPos": g.node(unreal.MaterialExpressionWorldPosition),
+                                   "CamPos": g.node(unreal.MaterialExpressionCameraPositionWS),
+                                   "NearFade": g.scalar("NearFade", 200.0, "Look")},
                  F1, desc="GTB Flake")
     g.out(a, "", MP.MP_OPACITY)
     base = g.node(unreal.MaterialExpressionConstant3Vector, constant=unreal.LinearColor(0.95, 0.97, 1.0, 1.0))
