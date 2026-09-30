@@ -1,6 +1,6 @@
-# GameToBlender
+# FreezeFrame
 
-Press a key in a game and get a Blender scene of that frame. The scene has the same camera, the game's textures wired into PBR materials, and lighting, fog and grading that are matched against a screenshot taken at the same moment.
+Press a key in a game and get a Blender scene of that frame. (It was called GameToBlender at first, which is where the `gtb` in the commands and in the Unreal asset names comes from.) The scene has the same camera, the game's textures wired into PBR materials, and lighting, fog and grading that are matched against a screenshot taken at the same moment.
 
 ```
 game ──(Ninja Ripper frame rip + our screenshot, same keypress)──▶ captures/<game>_<time>/
@@ -24,7 +24,7 @@ game ──(Ninja Ripper frame rip + our screenshot, same keypress)──▶ cap
 
 ## Use
 
-1. Double-click `GameToBlender.bat`, or run the command below. It starts the capture daemon.
+1. Double-click `FreezeFrame.bat`, or run the command below. It starts the capture daemon.
 
    ```bash
    python gtb.py watch
@@ -111,7 +111,7 @@ The same capture can also be opened in Unreal Engine 5 (tested with 5.8). Unreal
 python gtb.py unreal latest
 ```
 
-This command builds and saves a level in a generated project, `unreal_project/GameToBlender.uproject`. Each capture's level is at `/Game/GTB/<capture>/<capture>`. The command then renders it headless with Movie Render Queue and writes `captures/<name>/unreal/`:
+This command builds and saves a level in a generated project, `unreal_project/FreezeFrame.uproject`. Each capture's level is at `/Game/GTB/<capture>/<capture>`. The command then renders it headless with Movie Render Queue and writes `captures/<name>/unreal/`:
 - `comparison.png`: the Unreal render compared with the game screenshot.
 - `parity.png`: the game, Blender and Unreal side by side, for the game camera and the three close-ups.
 - `metrics.json`: the numbers, including a `vs_blender` block.

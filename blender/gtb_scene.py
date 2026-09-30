@@ -1,4 +1,4 @@
-"""Builds a Blender scene from a GameToBlender manifest and applies look.json.
+"""Builds a Blender scene from a FreezeFrame manifest and applies look.json.
 
 Runs inside Blender (5.x). The manifest is produced by `gtb.py process`; its
 geometry is already converted to Blender space (right-handed, Z up, metres).

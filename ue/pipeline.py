@@ -67,8 +67,14 @@ def write_cube_dds(path, size=4, value=1.0):
 
 
 def ensure_project(cfg):
-    proj = Path(cfg.get("unreal_project") or ROOT / "unreal_project" / "GameToBlender.uproject")
+    proj = Path(cfg.get("unreal_project") or ROOT / "unreal_project" / "FreezeFrame.uproject")
     d = proj.parent
+    old = d / "GameToBlender.uproject"          # the project's name before 2026-09-30
+    if old.exists() and not proj.exists():
+        if editor_has_project_open(old):
+            proj = old                          # renamed once no editor has it open
+        else:
+            old.rename(proj)
     for src in TEMPLATE.rglob("*"):
         if not src.is_file():
             continue

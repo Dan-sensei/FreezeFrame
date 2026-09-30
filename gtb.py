@@ -1,4 +1,4 @@
-"""GameToBlender command line.
+"""FreezeFrame command line.
 
   python gtb.py watch                 run the capture daemon (hotkey -> screenshot + rip)
   python gtb.py import <rip folder> [--name N]  make a capture from an existing Ninja Ripper rip

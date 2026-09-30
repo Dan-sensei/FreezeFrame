@@ -1,4 +1,4 @@
-"""Turn a Ninja Ripper frame rip into a GameToBlender manifest.
+"""Turn a Ninja Ripper frame rip into a FreezeFrame manifest.
 
 Geometry comes from the post-vertex-shader stream (clip-space positions, i.e.
 exactly where the game drew it). Clip -> view space only needs the projection's

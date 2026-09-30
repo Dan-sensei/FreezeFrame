@@ -15,7 +15,7 @@ ARRAY_BUFFER, ELEMENT_ARRAY_BUFFER = 34962, 34963
 class GlbWriter:
     def __init__(self):
         self.bin = bytearray()
-        self.doc = {"asset": {"version": "2.0", "generator": "GameToBlender"},
+        self.doc = {"asset": {"version": "2.0", "generator": "FreezeFrame"},
                     "scene": 0, "scenes": [{"nodes": []}], "nodes": [], "meshes": [],
                     "accessors": [], "bufferViews": [], "buffers": []}
 

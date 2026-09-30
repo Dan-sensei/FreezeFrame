@@ -1,4 +1,6 @@
-# GameToBlender: notes for Claude
+# FreezeFrame: notes for Claude
+
+The project was called GameToBlender until 2026-09-30. The internal prefix `gtb` comes from that name (`gtb.py`, `gtb/`, `/Game/GTB/`, `M_GTB_*`, `MI_GTB_*`, actor tags `gtb_*`). Keep it: existing Unreal levels and assets depend on it. `config.json` paths are relative to the project folder, so the folder can be renamed. An old `unreal_project/GameToBlender.uproject` is renamed to `FreezeFrame.uproject` the next time the pipeline prepares the project, once no editor has it open.
 
 Pipeline: Ninja Ripper 2 frame rip of a DX11 game → `gtb/process.py` (parse .nr, solve camera, classify draws/textures) → `blender/gtb_scene.py` (Blender 5.2 scene) → tune `look.json` against the game screenshot. See README.md for user-facing usage.
 
