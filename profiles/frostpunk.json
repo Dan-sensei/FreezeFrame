@@ -146,8 +146,15 @@
   ],
   "cloth": {
     "_doc": "Hanging banners: drawn with these shaders, bent by the game's vertex shader (rigid_fit above min_rigid_fit) and at least min_aspect times taller than wide. Unreal gives them the fluttering M_GTB_Cloth.",
-    "shaders": [["f9ea32a452eb431f", "c48c1b61d9d8ae6c"]],
+    "shaders": [
+      [
+        "f9ea32a452eb431f",
+        "c48c1b61d9d8ae6c"
+      ]
+    ],
     "min_rigid_fit": 0.001,
     "min_aspect": 2.0
-  }
+  },
+  "known_textures": "frostpunk_textures.json",
+  "_known_textures_doc": "Textures whose roles were checked by eye on Frostpunk_20260929_115750, matched by mip hash (gtb.textures). Add a checked capture with: python gtb.py textures <capture> --save-known"
 }

@@ -4,6 +4,11 @@
   python gtb.py import <rip folder> [--name N]  make a capture from an existing Ninja Ripper rip
   python gtb.py process <capture>     parse the rip into manifest.json + meshes + textures
   python gtb.py textures <capture>    re-run the texture role rules on a processed capture (no rip needed)
+  python gtb.py audit <capture>       material sheets: textures, roles (known or guessed), game screenshot crops
+  python gtb.py known <capture> [texture id] [--role R] [--what "note"] [--merge other.json]
+                                      the known-texture database: list the capture's guessed textures, show
+                                      one texture's entry, add/update it with a checked role (normal:AG, albedo, ...),
+                                      or merge a copy of the database that someone sent
   python gtb.py build <capture>       build scene.blend (runs Blender headless)
   python gtb.py render <capture>      re-apply look.json, render preview, write comparison.png
   python gtb.py calibrate <capture>   auto-match exposure to the screenshot (part of `all`)
@@ -203,12 +208,18 @@ def on_capture(cfg):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["watch", "import", "process", "textures", "build", "render", "calibrate", "closeups", "look", "open",
+    ap.add_argument("command", choices=["watch", "import", "process", "textures", "audit", "known", "build", "render", "calibrate", "closeups", "look", "open",
                                         "all", "unreal", "unreal-look", "unreal-render", "unreal-calibrate",
                                         "unreal-open"])
     ap.add_argument("capture", nargs="?", default="latest")
-    ap.add_argument("preset", nargs="?", help="look: preset name from profiles/looks/")
+    ap.add_argument("preset", nargs="?", help="look: preset name from profiles/looks/; known: a texture id (t0018)")
+    ap.add_argument("--role", help="known: the checked role: albedo, normal:AG (or :RG, :RGB), gray, packed, shared, detail")
+    ap.add_argument("--what", help="known: a note on what the texture is")
+    ap.add_argument("--merge", metavar="FILE", help="known: merge another copy of the database (a .json someone sent)")
     ap.add_argument("--save", action="store_true", help="render: also save look into scene.blend")
+    ap.add_argument("--save-known", action="store_true",
+                    help="textures: add this capture's texture roles to the known-texture database (only once "
+                         "they are checked, e.g. with `audit`)")
     ap.add_argument("--name", help="import: capture folder name (default <game>_<rip time>)")
     ap.add_argument("--anim", action="store_true", help="unreal-render: render the animation sequence")
     ap.add_argument("--no-render", action="store_true", help="unreal / unreal-look: skip rendering")
@@ -226,12 +237,64 @@ def main():
     if a.command == "process":
         cmd_process(cfg, cap)
     elif a.command == "textures":
-        from gtb.textures import reclassify
+        from gtb.textures import export_known, profile_of, reclassify
+        if a.save_known:
+            prof = profile_of(json.loads((cap / "manifest.json").read_text(encoding="utf-8")))
+            if not prof.get("known_textures"):
+                sys.exit("the game profile has no known_textures database to add to")
+            n = export_known(cap, ROOT / "profiles" / prof["known_textures"])
+            print(f"[textures] profiles/{prof['known_textures']}: {n} textures, {cap.name}'s roles added as checked")
+            return
         changed = reclassify(cap)
         for tid, (old, new) in sorted(changed.items()):
             print(f"[textures] {tid}: {old[0]}{':' + old[1] if old[1] else ''} -> {new[0]}{':' + new[1] if new[1] else ''}")
         print(f"[textures] {len(changed)} role(s) changed" + ("; rebuild with `build` (Blender) and `unreal`, or "
               "`python -m ue.live materials` with the editor open" if changed else ""))
+    elif a.command == "known":
+        from gtb import textures as T
+        manifest = json.loads((cap / "manifest.json").read_text(encoding="utf-8"))
+        prof = T.profile_of(manifest)
+        if not T.known_path(prof):
+            sys.exit("the game profile has no known_textures database")
+        tex = manifest["textures"]
+        if a.merge:
+            added, updated = T.merge_known(prof, a.merge)
+            print(f"[known] merged {a.merge} into profiles/{prof['known_textures']}: {added} new texture(s), "
+                  f"{updated} already there. Apply it: python gtb.py textures {cap.name}")
+            return
+
+        def hashes(e):
+            src = Path(e.get("source", ""))
+            return e.get("hashes") or (T.mip_hashes(src) if src.suffix.lower() == ".dds" and src.exists() else [])
+        if not a.preset:
+            found = {t for t, e in tex.items() if T.known_get(prof, hashes(e))}
+            print(f"[known] {len(found)} of {len(tex)} textures of {cap.name} are in profiles/{prof['known_textures']}; "
+                  f"the others were classified by the rules:")
+            for t, e in tex.items():
+                if t in found:
+                    continue
+                ch = (e.get("details") or {}).get("channels")
+                why = "" if hashes(e) else "  (no hashes: a single colour, a cube map or no DDS; can't be in the database)"
+                print(f"  {t}  {e.get('role')}{':' + ch if ch and e.get('role') == 'normal' else ''}  {e.get('size')}  {e.get('file')}{why}")
+            return
+        if a.preset not in tex:
+            sys.exit(f"{cap.name} has no texture {a.preset}")
+        e = tex[a.preset]
+        if a.role:
+            role, _, channels = a.role.partition(":")
+            entry = T.known_add(prof, hashes(e), role, channels or None, a.what, f"{cap.name}/{a.preset}", size=e.get("size"))
+            print(f"[known] {a.preset} saved as {entry['role']}{':' + entry['channels'] if entry.get('channels') else ''} "
+                  f"(entry {entry['ref']}). Apply it: python gtb.py textures {cap.name}")
+        else:
+            entry = T.known_get(prof, hashes(e))
+            print(f"[known] {a.preset} in {cap.name}: role {e.get('role')}, {e.get('size')}, {e.get('file')}")
+            print("[known] database: " + (json.dumps({k: v for k, v in entry.items() if k != "hashes"}) if entry
+                                          else "not in it (the role above is the rules' guess)"))
+    elif a.command == "audit":
+        from gtb.audit import audit
+        out, rows = audit(cap)
+        guessed = sum(1 for r in rows if r["guessed"])
+        print(f"[audit] {len(rows)} materials, {guessed} with guessed textures -> {out} (report.md, materials_NN.png)")
     elif a.command == "build":
         cmd_build(cfg, cap)
     elif a.command == "render":

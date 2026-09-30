@@ -1,0 +1,3319 @@
+{
+ "_doc": "Known textures: each texture's mip hashes (gtb.textures.mip_hashes) and its role, checked by eye on the capture in 'ref'. A new rip's texture with one of these hashes gets that role. 'materials' are the Unreal material instances that use it in that capture's level, with actor counts. Read and edit it with gtb.textures.known_get / known_add, or `python gtb.py known`.",
+ "textures": [
+  {
+   "ref": "Frostpunk_20260929_115750/t0000",
+   "role": "albedo",
+   "materials": {
+    "MI_M000": 267
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "3755210267cbbe756b7d",
+    "07dfa79405822eb3fc99",
+    "49aa5e9a973939b26964",
+    "d7f7b0cf05281477e969",
+    "68a7ce6dd0ba5d7c5e2a",
+    "a9c4942b01b8d378ecf4",
+    "042078c22e9dc85edb55",
+    "f5b0e13a1ef172116345"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0001",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M000": 267
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "34b4b907837054cdbb8a",
+    "b1ed5c4f576fd11a95c2",
+    "941b07f4f5311b644468",
+    "40c023fa5bc851d0ea77",
+    "0d8100e591dac085d9dd",
+    "a3e4e73509b640e47f91",
+    "efd4fbb9a62bea7616e7",
+    "d213b28057d237014a05"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0002",
+   "role": "shared",
+   "what": "engine-wide snow/noise texture bound to most shaders: ignored (role shared); alone on a mesh it makes a snow drift",
+   "materials": {
+    "MI_SnowDrift": 241
+   },
+   "size": [
+    4096,
+    4096
+   ],
+   "hashes": [
+    "338f7dfc2fae5a6b946d",
+    "3b3b527d1ceb8db9afe9",
+    "2c084b7381a5496d0480",
+    "dd3481fc557ea587bd5c",
+    "591c9b718e0e2d522cf6",
+    "a87185eb99987833cfc0",
+    "47e11dd0af197ad41690",
+    "2f25712051117bb4861a",
+    "ab87f599f73ce48b16a8"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0003",
+   "role": "albedo",
+   "materials": {
+    "MI_M001": 3
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "6e95d787f1d8d14f3742",
+    "4ba6e4932dec9b1cf185",
+    "9d9cf47a3fd97d24f572",
+    "b8779d9dc9d6a5f278c4",
+    "0dfe9da0a7f9bde0310f",
+    "9967950f98d75430e339",
+    "d5fc2395226bdc98d2bb",
+    "47bb169811fa8a867eda"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0004",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M033": 5,
+    "MI_M034": 4,
+    "MI_M001": 3
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "80359ad28c17f5090454",
+    "dc47250e640ab4821730",
+    "4a65f155b05c7a64185b",
+    "b53cc78387d71740f0f7",
+    "994e6433de3bdab8a1d3",
+    "eb6281fb91f549cbf13f",
+    "d0f3865c1d0412ca9c90",
+    "0713926ed3dcfc16ea50"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0005",
+   "role": "albedo",
+   "what": "red New London banner cloth (MI_M002, fluttering banners)",
+   "materials": {
+    "MI_M002": 44
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "68ac2ad2ef54cb27c149",
+    "a5cc6341b4e3cd9f6099",
+    "4687872a0629c1bd87b0",
+    "dcd36881d55c57c365a3",
+    "97bc96c78e295f2682de",
+    "306e444a5993180f5f87",
+    "206dc2aa8f69debe4936",
+    "69edc825e1795be2e230"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0006",
+   "role": "normal",
+   "channels": "AG",
+   "what": "banner normal map; its R channel is all zero, the packer's fill, not roughness",
+   "materials": {
+    "MI_M002": 44
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "10e4233fb7a04f3081ce",
+    "ac18a473d82c9aa39b45",
+    "78b0798d4bfd36113170",
+    "721a7e860b0f676536ca",
+    "16c73028817079c0b71f",
+    "57e20c428040ab00a2cd",
+    "c1c5c8e118756f673576",
+    "c04d95b5e13ffeb363e8"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0007",
+   "role": "gray",
+   "materials": {
+    "MI_M016": 3,
+    "MI_M017": 2,
+    "MI_M003": 1
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "9113a636786c7c6ffe25",
+    "0f4ada93a6724882315a",
+    "4c9c6016a06dfd6132ac",
+    "760fe2ecbe32a440eb0f",
+    "37ad7d00e980c54f4a85",
+    "a1cd016927678aee975b",
+    "fbc24028d0549b694bc4"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0008",
+   "role": "albedo",
+   "materials": {
+    "MI_M004": 4
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "9f737dd17e9772d70a6d",
+    "0c2a30b0bcb28dc4a618",
+    "d8c302c11cef05e25bd0",
+    "c3ca8c46971089335515",
+    "2f2b940df464bc8118bc",
+    "a70139f61a4a54ba6553",
+    "3258783ccab4d779bbf1",
+    "41690d8a4e978a30ca77"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0009",
+   "role": "packed",
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "cebcf62dc931bc4a92e1",
+    "f54c77d0264e14e56056",
+    "01841b614ed015282dab",
+    "56197a698517761ce473",
+    "990e86d7b8fb3cca88e3",
+    "14764011392de928ea32",
+    "51beb453a52d225cf6fb",
+    "7db27b9ca90c14ad9860"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0010",
+   "role": "gray",
+   "what": "coal (black is right)",
+   "materials": {
+    "MI_M005": 8
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "49020387820dee08a5a6",
+    "6cec92bd3179c35cf3ad",
+    "b56ce99124a91773ac5e",
+    "c4fe1050aa765ecf9cbe",
+    "61713db4e7edb38a8a2c",
+    "bcbe4c34225cd2c1de98",
+    "310a03ac165af98b08fa",
+    "c0e7f35847069ba5404d"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0011",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M005": 8
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "016ed61e591f97c1ba4c",
+    "a2df2a3918a7bfb8033b",
+    "4c4d3f753398275f6f0a",
+    "6ba7a68c6a1b99dad342",
+    "7149c6d8a86f12ebbd17",
+    "234cbf19e6ed09dd2d33",
+    "96b67fb29807e9ba6d17",
+    "6fae51b076e4282336a1"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0012",
+   "role": "albedo",
+   "materials": {
+    "MI_M006": 9
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "fd5113ea176bc053d8cf",
+    "336ce412a370d8456911",
+    "bc839842115ef3b6c302",
+    "54ddc24e60fe8426cbfc",
+    "229e31bf8957efc1a229",
+    "2c1ebce1c2884f43d983",
+    "73e76848f679025cab75",
+    "31d38f17d455a85c60f9"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0013",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M006": 9
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "d035bceee5ce9ff865dd",
+    "b1a9e2de102a78e987f0",
+    "4213c4ccf7df50e0fb01",
+    "e181008baee0687d691a",
+    "8f0803b76cb6a85ca8c0",
+    "cb7f1ec5a16dbb736e3d",
+    "578bfed7b4841cbf9922",
+    "c1daea2817ea9415e2af"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0015",
+   "role": "albedo",
+   "materials": {
+    "MI_M007": 6
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "cf5dbbafd6f72049f14f",
+    "00ccbc9c46999173c9be",
+    "a789638ac7da77266651",
+    "65f0f7a01ca70e6bb090",
+    "b53a6534445d42b61756",
+    "80031b2678b6d07e348e",
+    "96d71596fd63b87b8c96",
+    "1137ad81a1824357d42b"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0016",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M007": 6
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "6822c973811ec70f323a",
+    "be78265895ebe4bdb4c0",
+    "4422ccfb95de8602e962",
+    "0e67f760041c7aee846d",
+    "d2126c03b5fb527904d5",
+    "b43de873abb4f7051caa",
+    "8d93b296920b131005a9",
+    "8cf733325963f83ede1a"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0017",
+   "role": "gray",
+   "what": "frosted planks colour: banner stands, towers, building frames (almost colourless; reads as grey)",
+   "materials": {
+    "MI_M008": 163
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "8c4e441ad9e6cb3382e7",
+    "765ee0e3a42db8f8dd6c",
+    "44284ef01787bfc96933",
+    "3253ce623bbc1e2e796c",
+    "d92d5bef33de99ccef10",
+    "a5357089a2f749c5933d",
+    "639da69ca4835b5b5d9f",
+    "5bc8d2d516bcc4ce37ff"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0018",
+   "role": "normal",
+   "channels": "AG",
+   "what": "frosted planks normal, packed in A+G and nearly flat (was taken for an albedo: green/orange streaks)",
+   "materials": {
+    "MI_M008": 163
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "4af18989ed3aa0c53a77",
+    "607409190b8cebdd9cc7",
+    "04b8a15064628d88ca35",
+    "23f0dbcb81c5d7d24fee",
+    "0bf42880b9758827c5b2",
+    "437476ed6a1087b1938b",
+    "fe2e6fe31776b52d735b",
+    "9a9b5b9e874c3c12b7ba"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0019",
+   "role": "albedo",
+   "what": "rock colour",
+   "materials": {
+    "MI_M009": 77,
+    "MI_M037": 6
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "008f3f09680c6e6ab3ab",
+    "2aec89b783f4f5d53d89",
+    "2026f8423a97eeb04ad2",
+    "b96a80321d184724733f",
+    "8a739b6451d023796341",
+    "117987a31c4a048e05e1",
+    "f9d4e8234959de2878c9",
+    "0e4f8b11c4558394ab2c"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0020",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M009": 77,
+    "MI_M037": 6
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "7b24e8a54de81bc9d176",
+    "fcaa8081ca57f2a3409a",
+    "cc6e72d2c5ff5d00ebcb",
+    "d24fd00a891a439ad4fe",
+    "f88c32a8f4873dee288d",
+    "43c596f7e3c24b4511e7",
+    "3838e020d9cf1c0343a5",
+    "6b52c3e1b41980802160"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0021",
+   "role": "albedo",
+   "what": "rock colour",
+   "materials": {
+    "MI_M015": 65,
+    "MI_M010": 50
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "50342965f01dcafe94e6",
+    "9fb62c100fe6f3053944",
+    "fc23171ce05e83a66d99",
+    "71655b795b2e2d827034",
+    "bd12a37af4e02afb5d37",
+    "a82161b7bb5f8d773de5",
+    "e25496ebe7846d00ac44",
+    "9f619dd653b2d8b058a6"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0022",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M015": 65,
+    "MI_M010": 50
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "adb91b77e93d29f6465c",
+    "74200d5f000714d723bb",
+    "a396743b1a3145fe14cd",
+    "e615c71c1d51b43ab8c9",
+    "77c90425f911a26ae0fa",
+    "f1986a4f1840e45f7c1d",
+    "0431de5117f50a4529b8",
+    "d97fe177bd55e120e49c"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0023",
+   "role": "albedo",
+   "materials": {
+    "MI_M011": 3
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "b9b9bcadaf5931ad3fd3",
+    "8604b5981e36f12d5d89",
+    "b6a6710d20050ad7cbc6",
+    "c4f2cdd6cde97ff1024f",
+    "bad11efa6dfc514b1c62",
+    "54307e44792269f2d495",
+    "3e123b22ffee4a3bf933"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0024",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M011": 3
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "92f0671415edcd7d5990",
+    "ae059709f1c0e278fadd",
+    "e4ae82d29aa1c2969be4",
+    "b9f86608d6ca007e182f",
+    "075e0ed358adb5d4e1e3",
+    "7f1752c3924afc95d795",
+    "620f72b56d4d4b7e7043"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0025",
+   "role": "albedo",
+   "materials": {
+    "MI_M012": 10
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "27fc002e386f72fd8e3a",
+    "5d9ead59051578820797",
+    "4bb4fb8ee4f58a7a3c21",
+    "ef07070fbe04919ad266",
+    "0a3714234efbc709afca",
+    "8fd129d0a4dedca9d68b",
+    "e904f9731dd3910c90ba",
+    "03755e09e9f4b82af194"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0026",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M012": 10,
+    "MI_M105": 5
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "33c5bb30c95a33d8861d",
+    "d9f645f80896fd7e7cac",
+    "f212036ba835f87d639c",
+    "056b740851eb2845c261",
+    "949ca32048c6f730eb3a",
+    "bc5d25b4942d17364fd7",
+    "5d4286dc24620617461d",
+    "f316ffd148555d1f639d"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0027",
+   "role": "albedo",
+   "materials": {
+    "MI_M013": 4
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "dbeb7d2fb3876407d8c0",
+    "76223c192c8fe89ba890",
+    "59ff7654127f7142175c",
+    "84d7ce374400fff1c8d9",
+    "f4a5c839b7db86d23362",
+    "01112619dbe44ca21737",
+    "104d6fb87f9f942c9974",
+    "54ecfee10522a168a87e"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0028",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M013": 4
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "ef15855ee005b69cd2bc",
+    "274da83ca7d5b0a4cad5",
+    "a470cb08e2b443429683",
+    "962e3200f7c57b9de8b1",
+    "3ffd366d2834fd68acf5",
+    "52ca99e3ccab886894e7",
+    "aedd69eba08e57672e1b",
+    "b7434d1e4ff0684d034a"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0029",
+   "role": "gray",
+   "materials": {
+    "MI_M014": 8
+   },
+   "size": [
+    4096,
+    4096
+   ],
+   "hashes": [
+    "2407b273d5b50ed18588",
+    "94d5e82a9eb1180ed2d5",
+    "20f1fb7185b605fdaf30",
+    "af440f213348acb4201b",
+    "b183e2faa3e76abd7cd3",
+    "1b184cfb5a37c5a3b5d5",
+    "eba7d10ad7a4471a814b",
+    "bd3f3e6c5e03b2aa9b23",
+    "6de538ee4de7080f12b7"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0030",
+   "role": "packed",
+   "size": [
+    4096,
+    4096
+   ],
+   "hashes": [
+    "f67e88ff85dc5114825d",
+    "ae95ed2997d38e17b3be",
+    "6a2925a7427c314ab0dc",
+    "7bf19d244e86b4dad2b0",
+    "6b85d03149cbf52cf1f7",
+    "363432c15737c4560cd8",
+    "bda2f01b2bb67f0fefcc",
+    "aa5beb5318960f84f45d",
+    "6416528ea1aa9c90c0bd"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0031",
+   "role": "packed",
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "f0ec147a662320479995"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0032",
+   "role": "gray",
+   "materials": {
+    "MI_M015": 65,
+    "MI_M037": 6
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "3cec1d75da78335d162c"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0033",
+   "role": "detail",
+   "what": "4096 atlas of snow, ice, moss and rock tiles: a detail layer, never the base colour (yellow moss on the trees)",
+   "size": [
+    4096,
+    4096
+   ],
+   "hashes": [
+    "c7a7af0577752332bc37",
+    "b82987a545873ffc5bb8",
+    "e41d7be28cb5db6de7d1",
+    "b185b93edcc765f114ad",
+    "27598a9119a7133b8fa2",
+    "ceeebbab519c95cb0225",
+    "432f7bf3898679ac8dbd",
+    "c4d02f4b95554339d35b",
+    "ca73039ddacd08635a99"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0034",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M016": 3
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "8b8bb929f4e408d7bff3",
+    "2ca4e99472ce987fadb1",
+    "aa79768c745a91bfff3e",
+    "a0db08e2f0a1eb4696d4",
+    "c9fbe6f985c5192ef486",
+    "00dc8b2088c2cd88420d",
+    "2b1d1aa2b2b7f5864fa9"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0035",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M017": 2
+   },
+   "size": [
+    4096,
+    4096
+   ],
+   "hashes": [
+    "ee3dca02fa5d7dc23b13",
+    "9d34af4bf88e67d717fe",
+    "edde83feb2e0bffb5dba",
+    "5e0b451aab89876b50af",
+    "735ef47e7f698e18f42b",
+    "37ec91ebe1a2a254c225",
+    "43936245f5b608129ffe",
+    "a6c0f017e5abfee81c09",
+    "ce41b3d78821f074a4f3"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0036",
+   "role": "albedo",
+   "materials": {
+    "MI_M018": 4
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "468cb2264c92e5b7e216",
+    "c601026aa86a845a91f3",
+    "a5015d0ee24013075a71",
+    "10b870f0122beaeb7eaa",
+    "860406ed00f91b699390",
+    "490e0cfe3845f1585e5d",
+    "8825b1cb41e278d23de7",
+    "ab02faa6a2ba00db360f"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0037",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M018": 4
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "70bb57edeebf103628a9",
+    "c6ccee26b078cb7e3117",
+    "03911db3ffad260428d3",
+    "8b0c895013db1c830ba1",
+    "88f8e705461cf126127f",
+    "4f8338de03cd30717102",
+    "595b4172588e62202fc5",
+    "ad2e12f43244e6318156"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0038",
+   "role": "albedo",
+   "materials": {
+    "MI_M019": 7
+   },
+   "size": [
+    4096,
+    4096
+   ],
+   "hashes": [
+    "52ab78efa15fa16f56bc",
+    "c36f8cfb7fb973d7c07b",
+    "a909bcfdd39a88a46477",
+    "cae353f16e649bc2aca8",
+    "6485780f8e2611d0a6b8",
+    "75b0dd93b745e89776a6",
+    "54d976f14acbd2ef1023",
+    "274f5c39b15cd9ec0fc0",
+    "d50cc7ab94ff64352cd2"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0039",
+   "role": "gray",
+   "materials": {
+    "MI_M019": 7
+   },
+   "size": [
+    4096,
+    4096
+   ],
+   "hashes": [
+    "07a61de1bb32e11fcea5",
+    "a45deada8d3d7f994518",
+    "c2ea4cc12938b6c5dba7",
+    "d76a0c5b19a64f1274a4",
+    "a15d594808f1807ea18e",
+    "9b7a5f4d62fded4b8f6a",
+    "f5a84bcbe4f22ac3b6ca",
+    "cf98b6055986fe3a9518",
+    "fc29fa77bb1a3493c341"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0040",
+   "role": "albedo",
+   "materials": {
+    "MI_M020": 1
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "0c22e007063411675374",
+    "aac049342c6bca6d1c1b",
+    "3a6ebdff856d0a2b3f26",
+    "22d118fae7b41e93b3f9",
+    "5c6e6a8c2bac06810d5c",
+    "e68df4ad5bbebcbf1dd8",
+    "5862e6343b919e9ad726",
+    "5686df9dcf370f310099"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0041",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M020": 1
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "8abde675774a6537172c",
+    "77e669e2b06d02de0cbf",
+    "bbf7db25d814a1dc0bc1",
+    "a8f27e85f3c3228147b2",
+    "753eede7df6afea41a17",
+    "c6169d7611dab704d6c8",
+    "13c7addeb0afe3642246",
+    "408c23e4ee7b8cf515a0"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0042",
+   "role": "gray",
+   "materials": {
+    "MI_M021": 2
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "313fc4e507d8e59cef5e",
+    "9fe3d30877d80a1404b5",
+    "f26e7aa096a4c9d5d1e1",
+    "12c2e34fdd66d4eab7ab",
+    "6e97309aa0e255efdacb",
+    "415c28bf7128243d2be3",
+    "473759a17734f6b70c47"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0043",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M021": 2
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "81953b805e921ba7a210",
+    "1ba556b6444b931476fb",
+    "853a589c56bc7f26a61c",
+    "d49cef25d13026860ddb",
+    "b1d89d51359015f23df2",
+    "9220dc41847116862c1a",
+    "245fdcf983d324fa7079",
+    "baa5901d0f32f4811c07"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0044",
+   "role": "albedo",
+   "materials": {
+    "MI_M022": 3
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "63cec88aa38fbc820cb7",
+    "a92b7beadd800b04fed8",
+    "5e2f3cbe0d7fc9158e00",
+    "567edcf2546d447e2e69",
+    "51e5fc0591e175f6639c",
+    "0127f9243c6dc6d57e66",
+    "32efb9860f596ea0d520",
+    "4452bfd7c3227415c33d"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0045",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M022": 3
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "06264e5adc118046eb06",
+    "d9c8c6f82bc834ac15bf",
+    "eb86c4ed4790fbe3469b",
+    "0e1af3eef4527b327a85",
+    "8261651a184c8c27f153",
+    "cde8ffe6e83223411b13",
+    "6c6f2816a5f03e6c538e",
+    "a9c219d37c312a8d4ddb"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0046",
+   "role": "gray",
+   "what": "grey bark of the dead trees",
+   "materials": {
+    "MI_M023": 61
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "4312ae727cd6eb13374c",
+    "418b9eccaba9be92f380",
+    "f113e0a87fac001ed071",
+    "db69f62ef502fd3cf2f3",
+    "c3327e7a9ce842eb67bb",
+    "2e493320d71e8ed26a26",
+    "013390f875683054cfff"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0047",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M023": 61
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "adc821831fbfdd89d711",
+    "51e5ce94c462d061cde3",
+    "99953b127bd34cff8e2b",
+    "c261fa64048d6abb1fd0",
+    "be6ebcb0e3ec4f3da652",
+    "8ac817065d7340d305d0",
+    "e8f93fd4269e76113e7d"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0048",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M024": 1
+   },
+   "size": [
+    4096,
+    4096
+   ],
+   "hashes": [
+    "b0a695e0102e21ea6ef0"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0051",
+   "role": "gray",
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "47d4abf9bb47abf1c08f"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0052",
+   "role": "albedo",
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "f5e4c944a0f8a58a80a0"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0053",
+   "role": "normal",
+   "channels": "RG",
+   "size": [
+    4096,
+    4096
+   ],
+   "hashes": [
+    "21a3976bd764bb27ac09"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0054",
+   "role": "gray",
+   "size": [
+    64,
+    64
+   ],
+   "hashes": [
+    "e269a746cbec87ed7fcc"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0055",
+   "role": "albedo",
+   "materials": {
+    "MI_M027": 3
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "913e89279cf0ed11d22c",
+    "79dc314d916f687ab0fd",
+    "6555e613870fa9112817",
+    "e1d5523c57dacf455628",
+    "fb33b1c433e37761ba26",
+    "e982da3936edae820b85",
+    "333133be715d2776d48b"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0056",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M027": 3
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "7719b2fca044f959ad87",
+    "e79c332089f432be8fd9",
+    "619aa453293d7bbde81e",
+    "79cf2f23b1f649b788a6",
+    "6e52b4e332d89007a1f2",
+    "f02ac8d1608529201379",
+    "db64a89da6842ba629bf"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0057",
+   "role": "gray",
+   "size": [
+    256,
+    256
+   ],
+   "hashes": [
+    "d2567c5da087d3d0848a"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0058",
+   "role": "normal",
+   "channels": "AG",
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "7ee68bea65517e5ea60a"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0059",
+   "role": "gray",
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "918b1a7ae95ae6db02c2"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0060",
+   "role": "normal",
+   "channels": "AG",
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "ea368d537f5c606318c9",
+    "28c117249ef39a1268da",
+    "886c665fe4129f27a2db",
+    "b0716234330a605c34c4",
+    "50e49352b12626c62022",
+    "0c9f6cbeea79bb84d648",
+    "dc7a31aeb271b6c40592",
+    "91e8970ed93fb915b783"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0061",
+   "role": "gray",
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "0157c7ddcd550ac038e3"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0062",
+   "role": "normal",
+   "channels": "AG",
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "c36b3c57e2a29f42d89d"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0063",
+   "role": "albedo",
+   "materials": {
+    "MI_M032": 3
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "b7530d1735d201af4cbf",
+    "b222f18bcc55e4274b30",
+    "c0dfbcfce5028abd9b5b",
+    "49175c92e5603ee76c2b",
+    "49ce687df575e7cb44cf",
+    "e4aaa55bc5eaac242889",
+    "d7434d96249b97bb386b",
+    "cac0bcec6ba1850b446e"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0064",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M032": 3
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "602050ea4ea29c552362",
+    "a180e9a093dd8d14982e",
+    "8d2e5e99b7379478a8b0",
+    "e97b93df5f8b69bf4b03",
+    "49d6d82e7dfd3ed078ea",
+    "c325b0198d2cd6a31ba9",
+    "bfd616c943fc4095656e",
+    "e250b35af6f5cc7f2e86"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0065",
+   "role": "albedo",
+   "materials": {
+    "MI_M033": 5
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "b6adbf459ffc93afe9f9",
+    "68334d96df5d0dda68ee",
+    "4a7d747ac9bfb112dcfb",
+    "32c803c34f530231c458",
+    "ff36e453807c837b239c",
+    "9337b15dd52ad6e20722",
+    "0f2fc2abe87ec6535580",
+    "83c865b66ce01be939cc"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0066",
+   "role": "albedo",
+   "materials": {
+    "MI_M034": 4
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "0fe1a63443d2e543ba63",
+    "d32fac7adf42c86fd369",
+    "2feb424779a588c69748",
+    "503bd84e5daa9d0198e6",
+    "13605188d60c62a67ceb",
+    "90fd7e2eb0fe55a095c8",
+    "2a8db1054a0452af13b5",
+    "486397bb08f3278dc583"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0067",
+   "role": "gray",
+   "materials": {
+    "MI_M035": 5
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "92080720612a4ef6ec28",
+    "e1712f94ec1cd9026644",
+    "d7f1c403f671eded3a53",
+    "fadead1225e984880d84",
+    "e6a8c7f7516f0f0f324a",
+    "515e5e746cd36e0fc16c",
+    "11d8ebfbadabc362237b",
+    "dad564a1ee50f5fd5c1b"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0068",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M035": 5
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "69c9713d30f4705118f5",
+    "a57feec2adc336ebff72",
+    "0d3b13812db079f02fc2",
+    "8196ab4149f71c0b064b",
+    "0e551d0c1582fda594ca",
+    "eb2d743bde083daf87c3",
+    "0b835e897b37f92eb376",
+    "7dc070168be91d6f176e"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0069",
+   "role": "albedo",
+   "materials": {
+    "MI_M036": 2
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "f3151b6ea84ae20871b3",
+    "0f7fc66da0312d60e043",
+    "39f831b842042a23532c",
+    "6c7fb7cb6d9383698335",
+    "1f5743a72151c728ce8e",
+    "ef64179d9c802d3f43ee",
+    "208d5c42123417b9beb6",
+    "4e369e7e87f7e0c176ac"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0070",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M036": 2
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "c290e473364fb725d964",
+    "050b77da1bc62b11653f",
+    "72196d4c04e09e4d59d0",
+    "4b51ea14712b14ccdd0f",
+    "a7ab6272292d76ca6d63",
+    "234f32d50af2726d4a52",
+    "c395000103d40403eb22",
+    "4e7f6541b3cdf611b674"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0071",
+   "role": "gray",
+   "materials": {
+    "MI_M038": 4
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "4d0e3d198ae73a58a302",
+    "ea1dbd85cf6ec016410b",
+    "f0ed7d227d0f4cc5f6d4",
+    "e44819dd2ce47fc8f980",
+    "bb1ef855a8214d1a7f35",
+    "e23c9c7002d23ef91158",
+    "7d72a73cfcdb79b2a480",
+    "6a38bd5fbd9895de8b36"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0072",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M038": 4
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "daca3cf9aa3db5ffd76c",
+    "4b79e937bdb4a69a8e7d",
+    "2e55dfcdf7783207d04a",
+    "7f0a71558129d2fad270",
+    "59f860fa9cdd7d1935bf",
+    "5d5dcda01e87c01069dc",
+    "31c91b584d2b029efceb",
+    "7f1cfef85c807422f948"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0073",
+   "role": "albedo",
+   "materials": {
+    "MI_M039": 3
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "1cadc0f848d84ab72dc2",
+    "1ff0b6348e539aadb49b",
+    "9c378a913a7f3b6340b8",
+    "c8067c90ccfa0341fbd6",
+    "58366a66a05b0f03c6e5",
+    "8d16661de1d9c87c5f8c",
+    "904ff2b45805a071274a",
+    "31fbdc0c089edebb1278"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0074",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M039": 3
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "9ffec9e7b9908598da7c",
+    "0a8c6cc133aa694b4052",
+    "746bc5291f5ad2cb4c2e",
+    "38dc6dfbc107437fd5d7",
+    "fdc80867d190e0de250d",
+    "58de6c5a14d418de5c65",
+    "eabe43e096c79e7b0912",
+    "e64a1007c0a1496ecc8b"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0075",
+   "role": "albedo",
+   "materials": {
+    "MI_M040": 16
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "88b4a430e44778a25e88",
+    "d11fcd275ea0c77fec5b",
+    "1243ed3de4b9049f5775",
+    "e3ecdaed28b67ac6ae29",
+    "48f07a90a2f6864d2ad2",
+    "c4e6834c2ecd9e26d54f",
+    "9bf5586d111cd8458c42",
+    "76f59d041b85af3e711c"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0076",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M040": 16
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "f15d669fa03aec72feff",
+    "862a00d3df5ab080d745",
+    "4827122da060b95c7b80",
+    "161a42893e090a64d1f8",
+    "5b17df8871d729deddde",
+    "3e9cfef76eef3f1db465",
+    "6e481ab089ce4bd39927",
+    "a0d0b9a41fc3af38836b"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0077",
+   "role": "albedo",
+   "what": "rock colour",
+   "materials": {
+    "MI_M041": 4
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "bd8f5e9276d7ca6e67d8",
+    "e0a86bf7adb292e409fa",
+    "e51fe1ca93d13f9e7d51",
+    "d929f1fd6b80f749eda6",
+    "645c8242a2792601108b",
+    "9cdf1abe256f4de270e4",
+    "09c89638119dde149c07",
+    "f0f221f6168f8e8413c5"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0078",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M041": 4
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "ae9b920e614c1b9b86c1",
+    "3cb98ce50d886bf6d7fc",
+    "ce7b86017d3d47e1f5e6",
+    "6858abdf41cf8b194edf",
+    "47fb0cd0d9b89a210253",
+    "4a920ae43f7e4c82e2ad",
+    "fef4324312aef06839ca",
+    "7484bc91f2902e070e93"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0079",
+   "role": "albedo",
+   "materials": {
+    "MI_M042": 6
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "7e4735e67fdc72dee763",
+    "37883df16f4d1fd6db55",
+    "779f5347bb9d5ca7113e",
+    "ac8c5aa1a238045c564a",
+    "851b7222fc60cd0f19c6",
+    "8fe62bd6dfab48546b59",
+    "701ff53044c8880f7ddf",
+    "4805bab9a85c0830fb9c"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0080",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M042": 6
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "a827aec29e2ab72e67ca",
+    "b1c07ad44351cb86a051",
+    "4e9eb1cb3d8aed793738",
+    "4b7a3da25e66d673be5d",
+    "70b37dc688f44b893c54",
+    "0d7f4a8e9f4a91b431b2",
+    "7d7f43a6d922a6542ee2",
+    "51b654d0ad404c3465b5"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0081",
+   "role": "albedo",
+   "materials": {
+    "MI_M043": 2
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "ac34204ba27498fa8134",
+    "2ea66334aeb286aeda45",
+    "a1921d79d363ef3567f7",
+    "590038fe4ab2e2fb22f5",
+    "6b20ed538d63bf7a89fd",
+    "ec814d4c06f70721ff22",
+    "7febd2fdd6da851df359",
+    "fcc8248bef8ddcfa8be9"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0082",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M043": 2
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "3c01921fbbffe68b75c5",
+    "29aea2325f2c52f37610",
+    "8f35be195b3604b9597a",
+    "b36ec98419580042ddf8",
+    "4bd54f58ea8f9564e5b3",
+    "267f021bfbce70b9b953",
+    "fc7bcfce4d424cc3628e",
+    "7589cf7ea67972e19866"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0083",
+   "role": "albedo",
+   "materials": {
+    "MI_M044": 2
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "76406e29641688b99b93",
+    "1e9b80dc3034ed8ff32d",
+    "d0a800d158bb97ce59ad",
+    "8a23971fd14cd7eb002b",
+    "10ee571d45a9e207b43b",
+    "ba346f41e8b4dd87834d",
+    "310a1404081c08290349",
+    "4a415f7ca1402569e5ae"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0084",
+   "role": "normal",
+   "channels": "AG",
+   "what": "packed A+G normal",
+   "materials": {
+    "MI_M044": 2
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "2c2088799b1b0314bbcd",
+    "23d6bcda2c6663f9284e",
+    "ff84904c4ab4904eeb4c",
+    "b31a8863ae9157b079a3",
+    "9cbde53f598afdd9f734",
+    "9906e7438d3d84a433eb",
+    "ff8938eecc31c633b7db",
+    "86c03e8d8469ddc144f0"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0085",
+   "role": "albedo",
+   "materials": {
+    "MI_M045": 2
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "5fcebb8382ff381e8224",
+    "4f44092a72a46fa64e1b",
+    "9755420f4e6164c9196b",
+    "f4567e25ddf4ecd501bb",
+    "c17a09c8a4d54f2bef56",
+    "a6860f245b18f36556c6",
+    "fa0bf2794ca306810f14",
+    "e4e2b0e77deb4f04f908"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0086",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M045": 2
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "d120f245c0384cb5df0a",
+    "eb85d9a970404aa2fd8d",
+    "0d661868133ebf93b118",
+    "0104f6de749cc4371f87",
+    "0e13bd61656f4215ec5a",
+    "8db8e21f5ad3a4411816",
+    "b0e2df3c998adf3d5ca2",
+    "6110b8ad95453a84dccb"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0087",
+   "role": "albedo",
+   "materials": {
+    "MI_M046": 2
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "dbf2bd88aaa00eef3387",
+    "5eaf8bf2df9edcd89b14",
+    "6a2870200af19b4ad457",
+    "de1e0211c3a89d25b1d4",
+    "9bd6aa13d6bb5e53d905",
+    "7c13557f686fb618044d",
+    "40dcd476a3b213b69956"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0088",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M046": 2
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "4a168e85989ad362d159",
+    "f4edc4488d978907e82b",
+    "877fedf4a2eaba10b9ad",
+    "a1fbe4595dd152d959a8",
+    "22bdd999c8a3f8e513ad",
+    "4c68395048ac6b3f8fbb",
+    "387b38d612eb8c83a87a"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0089",
+   "role": "albedo",
+   "materials": {
+    "MI_M047": 44
+   },
+   "size": [
+    512,
+    512
+   ],
+   "hashes": [
+    "cd6eb86784abc2388687",
+    "f582b0f46b9e65c8e58a",
+    "bbe9830fb731748d6a58",
+    "901ed47f3b80fc4b5449",
+    "497ebbe1a76dcc98862f",
+    "58b0b0d53478d8a3b799"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0090",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M047": 44
+   },
+   "size": [
+    512,
+    512
+   ],
+   "hashes": [
+    "c47d9aa4fc8b975f37f1",
+    "3df1d1d883cccbb41cf9",
+    "86e7a65990c9f807c1f3",
+    "91a7800ae2143333a15e",
+    "4affde76e2153eb12729",
+    "affac553d3bfabcb51ef"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0091",
+   "role": "albedo",
+   "what": "planks colour (was taken for a normal)",
+   "materials": {
+    "MI_M048": 18
+   },
+   "size": [
+    512,
+    512
+   ],
+   "hashes": [
+    "04417e3a57849219f1b5",
+    "dfe8d42e1e19323e99f6",
+    "bce0feb8b7b808423cab",
+    "ef9a7b328bcb14bfabcc",
+    "cc8b7ca27183200703f8",
+    "38bbcd6239c718738abb"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0092",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M048": 18
+   },
+   "size": [
+    512,
+    512
+   ],
+   "hashes": [
+    "fed6422b295e524cc546",
+    "d111cae6df54bc7e1a06",
+    "f6660662409029fa97e2",
+    "26cf49c720eb05388961",
+    "b814e0ff83070236c449",
+    "ac20841d2c25deb521f5"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0093",
+   "role": "albedo",
+   "materials": {
+    "MI_M049": 1
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "484d199fd29f4968840f",
+    "74f13845c87cad203809",
+    "ae0a2d479182f7d7e967",
+    "d8cb9b1b3fa706820ae4",
+    "651086755f81d441b817",
+    "f9588f6bf8f61d51c0e1",
+    "5c9b12002980754b18bc",
+    "a942fa57c5430ccf127e"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0094",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M049": 1
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "426489f434ac4f262079",
+    "186b5f61f011e98b5184",
+    "0f88c9b2059d87b15f18",
+    "3ae2663fee8f8f8406ef",
+    "593332df837e8c189aaf",
+    "f3405f76552550ff889a",
+    "037dec57072fec5523c3",
+    "3b6f1dedc82e323da6aa"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0095",
+   "role": "gray",
+   "what": "lamp glow card (hidden, no Unreal look yet)",
+   "size": [
+    256,
+    256
+   ],
+   "hashes": [
+    "6dcff9674862ded79b77",
+    "e107364b8bca3fcedeab",
+    "7ad0ca07c9c1c6c302f1",
+    "a560c95fc9ec95484876",
+    "eb3ef9f16d24c08ca5d8"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0096",
+   "role": "packed",
+   "what": "tiny oil-lamp flames (orange is right)",
+   "materials": {
+    "MI_M051": 13
+   },
+   "size": [
+    256,
+    256
+   ],
+   "hashes": [
+    "113de1234b98c4053a2d",
+    "89b64ef7ea33166fbcff",
+    "34e57973047cb26a1342",
+    "146ad4490a43f4b05fdc",
+    "fb2947956666e7217f91"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0097",
+   "role": "gray",
+   "what": "spark (hidden)",
+   "size": [
+    64,
+    64
+   ],
+   "hashes": [
+    "5b49d8db4c804182badc",
+    "6b6e676ecee38ecf9b52",
+    "a3b68352fd9526a53aad"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0098",
+   "role": "gray",
+   "what": "light halo (hidden)",
+   "size": [
+    256,
+    256
+   ],
+   "hashes": [
+    "7bc72f47503f6e232635",
+    "0d180860ce380971e874",
+    "27b88697ad881a54483f",
+    "e5c648494659a052f52a",
+    "dcb8b34ab7a79b09ded6"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0099",
+   "role": "albedo",
+   "what": "fire flipbook",
+   "materials": {
+    "MI_Sprite_fire_t0099": 6
+   },
+   "size": [
+    1024,
+    256
+   ],
+   "hashes": [
+    "58a9d43fe40c20322ad6",
+    "cb0a216fbb2780da0344",
+    "89003c078ef0666606ce",
+    "f451f48bb49684351e51",
+    "847eb8f56740cbd929f8"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0100",
+   "role": "albedo",
+   "materials": {
+    "MI_M055": 1
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "f619e85590adbcf640b0",
+    "7adaee886e0c0da3acb4",
+    "17c2174b77f2ac0bf51b",
+    "1e0d3e836f4b742ef64c",
+    "dc36171cb42b341cdf86",
+    "2551fca877dadb6a651c",
+    "08856b93860d5df185bd",
+    "d9a20c0b5d616580c715"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0101",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M055": 1
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "309c9521224a0d8a3bcb",
+    "378ee68748e77c421a61",
+    "be31d2aeff16c7bc8fc1",
+    "d773d0341ef81bccbfa1",
+    "8a2d7fe900d4ef2ed6f9",
+    "e550cffd49d145a3d495",
+    "54d49e341019c8b4e4ff",
+    "e9cfcd4fa463f33a6ee5"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0102",
+   "role": "albedo",
+   "materials": {
+    "MI_M056": 1
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "a3116a4419689f11ec54",
+    "41713d547f2a6a606705",
+    "1bd4277f7360edca067d",
+    "b3f0697cdbd3d9debc47",
+    "df6e66513a5e196cd408",
+    "2dfcae887a1bba348259",
+    "235615ab1091dcc78ddb",
+    "fd507ec0fc64964d5624"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0103",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M056": 1
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "de3ade0c9ff08d94a176",
+    "51db612dc4c11baf2b66",
+    "75749c677f413adc180e",
+    "02135dbeb90323e7c082",
+    "084bc77fbe1156cc4a7b",
+    "823b85c1eda67bd3750e",
+    "3a124a9b6cb513dc189e",
+    "665bc625948bb90081ba"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0104",
+   "role": "normal",
+   "channels": "RG",
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "cd34ffa634bc7e8c9c7c",
+    "31f3143cdddf0f4d747d",
+    "b87bbe934fc0cb154f59",
+    "6b83212c690cc46ded87",
+    "f676fb45363f1e7ab7ef",
+    "dfa87bd09f189b0fed31",
+    "17495ea99ba57c8ca3d2",
+    "6beeb628fd9fa1a868a7"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0105",
+   "role": "gray",
+   "what": "faint smoke flipbook: wind-blown haze over the ice (mist), building steam",
+   "materials": {
+    "MI_Sprite_mist_t0105": 1
+   },
+   "size": [
+    4096,
+    2048
+   ],
+   "hashes": [
+    "9e33b659eea91cee1d11"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0106",
+   "role": "gray",
+   "what": "light halo (hidden)",
+   "size": [
+    512,
+    512
+   ],
+   "hashes": [
+    "2d895a79c215427e8e8e",
+    "973f53a77cfa4c1e3e35",
+    "f433b93c79ff9f64feb0",
+    "ae4a50a46c542efedbf8",
+    "8260547ddb9dcec525cf",
+    "e2325b5a5e90512dbf37"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0107",
+   "role": "gray",
+   "what": "light halo with a star (hidden)",
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "172b1091ac0051bfb560"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0108",
+   "role": "gray",
+   "what": "flame flipbook of braziers and fire pits (hidden, no Unreal look yet)",
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "b2c5bf59c02beb6995b7",
+    "dc972eb169f390af3df6",
+    "b971ed4607169a3bf7fb",
+    "888a695956aab77a96e1",
+    "80d056bcda8fe004c1f9",
+    "d390e847f068a91edd7c",
+    "8cf021044b8982db3dd3"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0109",
+   "role": "normal",
+   "channels": "RGB",
+   "materials": {
+    "MI_Sprite_smoke_t0109": 1
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "895929f59b5beb355e86",
+    "0e6462635ec4a5817648",
+    "b5a1fbf7b33427a2b1b5",
+    "2c6d945e9d5ff6998402",
+    "9ed1929363968f26ef4e",
+    "4d668687039c1c0884ea",
+    "173af9283870b14989c6",
+    "848358f1001579a7902a"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0110",
+   "role": "gray",
+   "what": "particle lookup texture bound next to many flipbooks",
+   "size": [
+    2048,
+    4096
+   ],
+   "hashes": [
+    "20cc7d2ee9db0a6e1e80"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0111",
+   "role": "packed",
+   "what": "chimney smoke flipbook (RG normal + alpha shape)",
+   "materials": {
+    "MI_Sprite_smoke_t0111": 15
+   },
+   "size": [
+    1024,
+    512
+   ],
+   "hashes": [
+    "c16c291d592c95113a54",
+    "8d1f662b88fcc969f811",
+    "af37feee78a36957af2e",
+    "ae78b4f1707174034dc0",
+    "93bfe20757d8184a9ca2",
+    "3ef7852c63ca2f956875"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0112",
+   "role": "normal",
+   "channels": "RG",
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "353f3cfbbdaa49fac395",
+    "28f0213d13716bd2a3b2",
+    "6b095386b14f9501e315",
+    "9e98edbe9bb106ebd190",
+    "7d5c3b9848cb19984f9d",
+    "c3f96aa5e1385694c081",
+    "fb7d5c3f6752d424246a"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0113",
+   "role": "gray",
+   "materials": {
+    "MI_Sprite_smoke_t0113": 1
+   },
+   "size": [
+    2048,
+    512
+   ],
+   "hashes": [
+    "680c24954acf33ebbb89",
+    "b00bfa200bcce5732c99",
+    "430ad8838bc55d645c6c",
+    "f453a567f30ca2ce8541",
+    "9e3092b1648515a22300",
+    "2208396f360d1c5c8535"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0114",
+   "role": "gray",
+   "what": "ground mist card: flat grey with a soft round alpha blob (mist)",
+   "materials": {
+    "MI_Sprite_mist_t0114": 8,
+    "MI_Sprite_smoke_t0114": 1
+   },
+   "size": [
+    64,
+    64
+   ],
+   "hashes": [
+    "368eb12dfced4f1b9675",
+    "a8133fe01c148622ce05",
+    "6c4203aff738a9d5de43"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0115",
+   "role": "gray",
+   "size": [
+    512,
+    128
+   ],
+   "hashes": [
+    "fd5091b979ee74606fa8",
+    "348b226f5941c86ab8b0",
+    "268ed88f3bd558808c6b",
+    "7f2b03b1c409c82d5a8a"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0116",
+   "role": "gray",
+   "materials": {
+    "MI_Sprite_smoke_t0116": 1
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "e32e968e36e132a67ffa",
+    "c1603c822c0d110816db",
+    "745e21b568fd9e3e1187",
+    "ab1a338d12e6962a7d0c",
+    "8133f4f907f8bcbe7c18",
+    "f2ba4e9ad5e688cb06c4",
+    "c583f833a61c3ee3770f"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0117",
+   "role": "normal",
+   "channels": "RG",
+   "materials": {
+    "MI_Sprite_smoke_t0117": 1
+   },
+   "size": [
+    2048,
+    512
+   ],
+   "hashes": [
+    "00ef5fc6564b0aaf5831",
+    "a8ca0fa0fadf179989b4",
+    "4048705608ddc843f7f0",
+    "669d12ac34fdcbc9043e",
+    "ec813176b6a1be167543",
+    "28811801f4dfced3664b"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0118",
+   "role": "gray",
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "b9776d8a08d231e7e6bc",
+    "bb38c56ebc5fbb9a61b7",
+    "3f41b4defa06a0f0e272",
+    "07c7a478635b2ef37be1",
+    "c4e4c15116c42f13b516",
+    "a10108d34700ea803cb3",
+    "28eff0ca514e727e3563",
+    "da5b9df199ce420ba794"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0119",
+   "role": "gray",
+   "materials": {
+    "MI_Sprite_smoke_t0119": 1
+   },
+   "size": [
+    64,
+    64
+   ],
+   "hashes": [
+    "9de9567b0397a4d1d9fa",
+    "5e892b34756e27e12320",
+    "cdc78c854e8b7bebad00"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0120",
+   "role": "packed",
+   "size": [
+    128,
+    32
+   ],
+   "hashes": [
+    "305a5fdcd1d2d5670e6f",
+    "75628d531ffc4f465ff0"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0121",
+   "role": "packed",
+   "what": "chimney smoke flipbook (RG normal + alpha shape)",
+   "materials": {
+    "MI_Sprite_smoke_t0121": 8
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "5d2abfda7b4d39406991",
+    "c315620440ff921b9d6b",
+    "47015be324262436add1",
+    "7e581c8ff5906eebbfd5",
+    "e7a48a0543e4cfe61358",
+    "709664746d7e35961c12",
+    "d4a274baa11dd7ef7a4f",
+    "c19122df026af1f71cee"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0122",
+   "role": "gray",
+   "what": "blurry greenish band on a 450 m ground quad south-west of the city: unknown, hidden",
+   "size": [
+    2000,
+    2000
+   ],
+   "hashes": [
+    "cad5b4a5688d268cd4f6"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0123",
+   "role": "packed",
+   "size": [
+    512,
+    512
+   ],
+   "hashes": [
+    "63a0250a6dc80a27435d",
+    "99a4532b15ce7dee6f40",
+    "8a86773a3bae2421d77f",
+    "146e201b54d874d82999",
+    "ca49f6f3af958d0e4710",
+    "bae94d10145133ccf98b"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0124",
+   "role": "gray",
+   "what": "snowflake sheet (the game's snowfall; the procedural snowfall replaces it)",
+   "size": [
+    4096,
+    4096
+   ],
+   "hashes": [
+    "10824e6c0ddda9d6163d",
+    "ebe7bc693c5c2d14ba92",
+    "55f28ec14be6b7fb65c4",
+    "61b8698d98334206ef85",
+    "1fea015aa21a281296c8",
+    "22749dc14fba7e532cd9",
+    "b4fee999e4d4fc7cc0fc",
+    "c1a7c0a44b5a402e6078",
+    "d7f3a4448e2895009fb7"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0125",
+   "role": "gray",
+   "what": "light cone under a lamp (hidden)",
+   "size": [
+    128,
+    128
+   ],
+   "hashes": [
+    "443a0a55c135af4f1c53",
+    "baea758c76b5e464cbb9",
+    "70b45073b192a5804391",
+    "4cd5fdda28369d1755f4"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0126",
+   "role": "normal",
+   "channels": "RG",
+   "what": "mist wisps over the east crater wall (normal-mapped flipbook)",
+   "materials": {
+    "MI_Sprite_mist_t0126": 2
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "00c6456397384db5546f",
+    "72f73855da1a5d46a1a0",
+    "31ef8301a57372f0e6a0",
+    "14f4e05683a3ae8f4c89",
+    "b6f35106f493d8c4b84e",
+    "7e010ef081f2e738817b",
+    "e34ce27b3f8b47e84e56",
+    "d0d556318dab12ef06ce"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0127",
+   "role": "gray",
+   "what": "snowflake sheet (the game's snowfall; the procedural snowfall replaces it)",
+   "size": [
+    4096,
+    4096
+   ],
+   "hashes": [
+    "f57a58942ca2a44b2b14",
+    "fc41f2f83e38a0830b9b",
+    "31bdf079b8f5502e8c5c",
+    "77900075f09819c44afc",
+    "9b394c4ede563b079f4b",
+    "39ff609811286a29cadd",
+    "b95fcd04b06c04feef3e"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0128",
+   "role": "gray",
+   "what": "haze on the crater walls (mist)",
+   "materials": {
+    "MI_Sprite_mist_t0128": 1
+   },
+   "size": [
+    512,
+    256
+   ],
+   "hashes": [
+    "ff95639c647e2a2a8214"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0129",
+   "role": "gray",
+   "what": "frost streaks mask of the overlay ring around the crater (hidden: the game blends it over the terrain)",
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "486f4c577ab589127edf",
+    "9b37a632caa0cf21092f",
+    "6ade19b8fe218e1429e8",
+    "c30c586b7139e4896095",
+    "f1c833c246ccb9fe3666",
+    "b87d06ebde38e45e4457",
+    "615bd269563b9dc4a6ca",
+    "bc6a5c6c89cd8a0dbf08"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0130",
+   "role": "packed",
+   "size": [
+    4096,
+    411
+   ],
+   "hashes": [
+    "4f57385716f9e155569b"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0131",
+   "role": "albedo",
+   "size": [
+    4096,
+    412
+   ],
+   "hashes": [
+    "2d07d00687b98e456ddd"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0132",
+   "role": "packed",
+   "size": [
+    4096,
+    176
+   ],
+   "hashes": [
+    "4fc2deea44be71b99dc4"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0133",
+   "role": "albedo",
+   "materials": {
+    "MI_M089": 16
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "332210e85309bb848ef0",
+    "61a58577e57df57ce5e4",
+    "0559eafd239b3d9eff20",
+    "a7c87b7962d36ed7627e",
+    "1386156c1a41491f7993",
+    "c542e867830eb15d34e6",
+    "e63bb5d67aeae053b7ae",
+    "6a062d4e9dc416fb6be6"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0134",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M089": 16
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "f52f4bb08238e4e021f4",
+    "bf6b1cb7666f4711a147",
+    "8e239a2dcdc2be2d7398",
+    "0f1a3c8dff7458d1dee1",
+    "444fd6a339b99882d740",
+    "4d1230f5f374ed5120c9",
+    "d5e8732e05e3db57d7a4",
+    "cbce4ad87df4666ceb97"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0135",
+   "role": "packed",
+   "size": [
+    4096,
+    131
+   ],
+   "hashes": [
+    "687891d74779d6a351cd"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0136",
+   "role": "packed",
+   "size": [
+    4096,
+    130
+   ],
+   "hashes": [
+    "3d0eaf92c0118b7aa7fe"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0137",
+   "role": "albedo",
+   "materials": {
+    "MI_M092": 8
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "cb9ed6649963bafa719c",
+    "8bc5dea094f6effd1ea1",
+    "00666b0d7797631ca217",
+    "6917b721c3019ea41b48",
+    "f948962209ed4a9fb7c2",
+    "8fab456a3e8ca62acbfa",
+    "069fb0ab30e7a67c2466",
+    "abe939b4dfd89ccb2035"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0138",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M092": 8
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "62aab9cbf3d3da61f92c",
+    "0634427fa1aba64cd215",
+    "88880c0b2df07f738ed4",
+    "e08c2340d9414c957380",
+    "545d1deb3ee34727ad9b",
+    "e0d88edf4dfdfc49ded1",
+    "534de60360cfce566cd6",
+    "92e4a0a48431c144434f"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0139",
+   "role": "packed",
+   "size": [
+    4096,
+    179
+   ],
+   "hashes": [
+    "b41d7ccf0416b6476323"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0140",
+   "role": "albedo",
+   "materials": {
+    "MI_M094": 8
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "66af40bef35d2f895a2d",
+    "ed6480fba9f35bb4ce1e",
+    "c42ac72d70817cdd64b9",
+    "1ab91c5cc28b71807558",
+    "dc08c664a1976d5b546c",
+    "4d68906d44ae1cfe6655",
+    "733fa828e42aa66faf96",
+    "f7ec9e7830f5a1341434"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0141",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M094": 8
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "da88cfb1ee96ec247403",
+    "b9f41ef2c8d64c668c53",
+    "6e1c1cbedec1d8cc283a",
+    "afb27af76b7760de5a14",
+    "1cf4759e65d62b74c853",
+    "3ba8372eaa21de6f6c36",
+    "29f05d9b5db39eeff896",
+    "1189157b0b4edb061612"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0142",
+   "role": "gray",
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "59949d2bd6ca7c328578"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0143",
+   "role": "albedo",
+   "materials": {
+    "MI_M096": 15
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "2853d6bcc40c3328a4c3",
+    "d73d7bf4fdf3391df9ba",
+    "c3efc385566ebd46ba01",
+    "44c9fe4b29acc22ad84b",
+    "631bdee55eace97c7ffa",
+    "84c2c012159d3c4e0779",
+    "d55e23ccb5a8b7d6fe34",
+    "f09a6afcce1582b0536b"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0144",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M096": 15
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "95bc5fb429b1cf8e8eba",
+    "c005a64e71953079ea24",
+    "c047783b3adf950a53c0",
+    "2e04df877304343302ae",
+    "042d4dbd8bbb298047f1",
+    "252adc9b0a1b95c668c4",
+    "ea404a46a431b81b2fe1",
+    "cb8c6399843c1a92b243"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0145",
+   "role": "albedo",
+   "materials": {
+    "MI_M097": 2
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "4c2fd479a9fd1c5025f6",
+    "90d1d8a47c7e707f9d12",
+    "a35ae4f79a88999f364b",
+    "69dd6bee2e25f2e15a97",
+    "3b253d77b65fd032622e",
+    "4e3dd80998d431f15074",
+    "ed5ebd8bb0740bf30a37"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0146",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M097": 2
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "1693e3a0d0ca3515d660",
+    "30f4c6273e12425a35f4",
+    "4fd72e1a21cba823e765",
+    "08a94605d9deb205e83b",
+    "367a029a0808eb54b046",
+    "3b1a3ec28859e20153d2",
+    "f08a755d6af7e4dee11c"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0147",
+   "role": "albedo",
+   "materials": {
+    "MI_M098": 1
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "aa8993eed33d553d7d1c",
+    "e03c02d600869be1a84b",
+    "0de029f499306d1e0983",
+    "510f45a5c103a65eaf70",
+    "965077d192d59282acac",
+    "de0907b8758c329f4053",
+    "c4e1964f3bda67a39984"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0148",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M102": 5,
+    "MI_M098": 1
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "69aca5e77f47e893dace",
+    "1856173ae469cc6b8dc3",
+    "f352b9be200a32b4c89b",
+    "4a52ba73c0549fe037c9",
+    "4e47dd29f13ab2387763",
+    "be28aafc35763a7ab3ec",
+    "e099cbb847c77535e732"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0149",
+   "role": "albedo",
+   "materials": {
+    "MI_M099": 4
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "eab4865658b410c3d777",
+    "b5467c1539f3b753c4c0",
+    "76535dcad5ec29ac6822",
+    "b547d9c4c91ba26ebb17",
+    "38479e5772c5e1fa7ac9",
+    "fab9aa528c7a2707d69b",
+    "07caa256f93c465695d8"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0150",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M099": 4
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "4f44934f31422af9f362",
+    "222f0444cc032d6975a8",
+    "4cf2d225ef3e2d4e3161",
+    "eb6c68f0e700cbc851cb",
+    "aa0f1ab51973783ed362",
+    "58fa976e0c4f4c6ff39b",
+    "58fe579684de608e736f"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0151",
+   "role": "albedo",
+   "materials": {
+    "MI_M100": 3
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "0e3ca17df7371a73af10",
+    "d0ba0f87f0d0a6e9badd",
+    "2dc55f7d0f061028da2e",
+    "3e1441a7bd9455c105c2",
+    "844092cfcce7478f77f6",
+    "9205bff18512640e7d2a",
+    "d0e7a7548562507ceb3b"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0152",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M100": 3
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "5331b82ac71fcb94e348",
+    "754375a926240927a4a2",
+    "e90e1db2838d58ece941",
+    "0314975238ce56af6f1a",
+    "755425c34f93b3b71ca5",
+    "f965f91db01518d8f144",
+    "be65331da5eecc208e96"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0153",
+   "role": "albedo",
+   "materials": {
+    "MI_M101": 5
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "5b89b1eeab44682337c1",
+    "6960d740545f6081d72f",
+    "25c5ed26ad73bbde9b5c",
+    "4a522afaa5c26ca82dc3",
+    "cdf2a5c60f7101d9cfd3",
+    "04a01fab04b5a83fb857",
+    "bc45a976f2e5e1d4eabc"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0154",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M101": 5
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "0ddb84403244ac49e858",
+    "38ff5eeb0e55e5d2dd47",
+    "0bd332caf268a4bd6619",
+    "c2ef022f6f2de254e5f2",
+    "211c3cbf1c6342319173",
+    "d0e1de8dc03a26a1a876",
+    "9468f91468f36904f95f"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0155",
+   "role": "albedo",
+   "materials": {
+    "MI_M102": 5
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "09efea99905fdeb1ffd8",
+    "cdb0d59c35593197ee4e",
+    "cbe3340fb451e98a1c53",
+    "81396540582327f7ddb2",
+    "f64822550c1677008b17",
+    "bb4f6e8ce12fe8f9718d",
+    "f01b5249552a4cbf17ee"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0156",
+   "role": "albedo",
+   "materials": {
+    "MI_M103": 91
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "bac6510295f544031d2c",
+    "c67254a5ca2d4b678154",
+    "884ecb9cae76aa303696",
+    "aeafce733ee1f2f30d9c",
+    "da03327fc5f8bb727d13",
+    "0ea6ab3254da40b8d275",
+    "5c96d22db9832c729e71",
+    "84053c424ba952fa5520"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0157",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M103": 91
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "4b5d8503736c02008f17",
+    "1d7ac41f8a1e6f087c97",
+    "159b83d0373020440b90",
+    "5d52fb8afe4f15ccce7a",
+    "645ebaaf9bc25123ed67",
+    "219834babf5a3ec8666b",
+    "5a81679c37184f699df2",
+    "61940dd83323ff49584b"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0158",
+   "role": "albedo",
+   "materials": {
+    "MI_M104": 158
+   },
+   "size": [
+    512,
+    512
+   ],
+   "hashes": [
+    "da175ffbe4918a18d452",
+    "d415dbf97d5fbcdeac77",
+    "4f08fa1c73b9e8f7c2bf",
+    "86efdadbad1bd5717211",
+    "6d513b7cc4a8c131cd5c",
+    "f5d877598d81673cf697"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0159",
+   "role": "normal",
+   "channels": "AG",
+   "what": "packed A+G normal (was taken for an albedo)",
+   "materials": {
+    "MI_M104": 158
+   },
+   "size": [
+    512,
+    512
+   ],
+   "hashes": [
+    "14dc31250879aa44d860",
+    "0376fc7e91d68344f9f6",
+    "33a20c4509aa1c0e6e8c",
+    "bb00c5851dbc6ddfa32f",
+    "a5bb31641af8c3bb78cf",
+    "9ee43df91fb98ec40cfb"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0160",
+   "role": "albedo",
+   "materials": {
+    "MI_M105": 5
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "9d99c7bdb3cd507cf2a4",
+    "cd24c26800ef719089e1",
+    "3c507fda8a14984cc0c7",
+    "839de91b1fb15c8dafc6",
+    "4ae42bf9929524a0a860",
+    "f2e99838dbbeac6181c3",
+    "74be69bcb3e41e394e56",
+    "063a00808c0ce32602f4"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0161",
+   "role": "albedo",
+   "materials": {
+    "MI_M106": 1
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "41e28c35bfa0dd298d21",
+    "12be7d703d9545f22973",
+    "340ff6d80d7ae0d33b86",
+    "3ff7b5122d6b8c680127",
+    "a43cb9beb26e833183f2",
+    "fe98d1852fbcf3e6f6ac",
+    "9958413f418360b88d71",
+    "ec45fe5e97abf516bae3"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0162",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M106": 1
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "ea46e0c6eabcd9180920",
+    "d4905a0f226d1d32366e",
+    "cd387b0197a3f5b0d875",
+    "a434bb6db200c3bc1d1a",
+    "cb49a0bf4d2fd256c36d",
+    "1fba88010e1579ef884e",
+    "63937e1b5b18bca457ec",
+    "00a00457c3561ad4e7a4"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0163",
+   "role": "albedo",
+   "materials": {
+    "MI_M107": 1
+   },
+   "size": [
+    4096,
+    4096
+   ],
+   "hashes": [
+    "b0e6a66500ebb41d1640",
+    "249677862c220dc4d03e",
+    "36b9e7913e29835dad47",
+    "896e86511b54332ae5e6",
+    "48835afa01c8afbf8f17",
+    "0985685daa434151aeff",
+    "312bedfd07102e9d9799",
+    "6060195907fd0ebe18ff",
+    "5ce760b9e14d6657f1c3"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0164",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M107": 1
+   },
+   "size": [
+    4096,
+    4096
+   ],
+   "hashes": [
+    "53d0852cdb9e31b5b99f",
+    "5e893dc5dc1e264e56ac",
+    "7e4d6c6fff48632cdea8",
+    "49625ebd5c2f7480a95c",
+    "92d9ade96b33655d33a0",
+    "d888e22670086b0d2c4e",
+    "9588374f1390e5b0439a",
+    "7423ea17da76628f7eb4",
+    "63642b3787cf7d9c4461"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0165",
+   "role": "albedo",
+   "materials": {
+    "MI_M108": 1
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "71826d68ab1ac6b8e9c7",
+    "cb10c9062a1bc5afe2a2",
+    "4506739efc3d31cea59f",
+    "6bffac86c96299d02171",
+    "e1d1c09306a3111be17d",
+    "a1081d534bce4ba68979",
+    "4203d61e1c84a02a1047"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0166",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M108": 1
+   },
+   "size": [
+    1024,
+    1024
+   ],
+   "hashes": [
+    "a060cca63ddc24852a25",
+    "9beec6a0847f2adfd940",
+    "80e16b3d6c920a400650",
+    "cd16884fbebac45f78e2",
+    "49ab2bb351968d89f436",
+    "6da30b415e96d6b087eb",
+    "7cae85fe67cfe2bc0ed6"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0167",
+   "role": "albedo",
+   "materials": {
+    "MI_M109": 2
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "41458e099e39919364b4",
+    "59e801e8ed6cb65639a7",
+    "061d194713b06bc7bd0c",
+    "b4176dce027ed3b18db5",
+    "3d01d18fd074f5746730",
+    "874fad4b2ac67f98d987",
+    "31aacfdbe90e83d739b2",
+    "7146ae54d205d92651d9"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0168",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M109": 2
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "ee7eb6abe31775e5c14d",
+    "20f7992455d01912f71b",
+    "5af6887bd298a409a4a2",
+    "93d56195ffe3618ddec6",
+    "342c759214968731e690",
+    "7bfd05fefe13b440be36",
+    "391372fab5711eecb401",
+    "80aa0faa6442fda71cc6"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0169",
+   "role": "albedo",
+   "materials": {
+    "MI_M110": 2
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "590a104ca3ac540bc8b0",
+    "87b235517d709d20afda",
+    "086c9a21d12adaef3b70",
+    "1b7ce5b00b5c6f23c08d",
+    "da3439bf05110acc1efe",
+    "364136a6d6a97ed87081",
+    "af377a34f9629557f231",
+    "e36293720c0d1a653dd8"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0170",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M110": 2
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "46fe2ee8ffe10d1336dd",
+    "892ac75bdf44dbf1cb91",
+    "2ba973ed5ac34f7e63f3",
+    "eebf8b4d56e87c1bd046",
+    "8f2d6ed9f56071a3e4bd",
+    "93a68c26078c63079466",
+    "c1a7bdafc4bb37075a87",
+    "2b559bb70e6004382ee0"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0171",
+   "role": "albedo",
+   "materials": {
+    "MI_M111": 2
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "52405be728b5380ef1eb",
+    "914cd2751cf7ae4c150c",
+    "50d8e7d70771f9dc6e19",
+    "8ce08a8ace4867a0c35d",
+    "728d001941c1c26e4c22",
+    "e42c841f1ff3690f9e9e",
+    "2dc071561bfc0a4e58a3",
+    "f4c7a3f4c57a8b874efa"
+   ]
+  },
+  {
+   "ref": "Frostpunk_20260929_115750/t0172",
+   "role": "normal",
+   "channels": "AG",
+   "materials": {
+    "MI_M111": 2
+   },
+   "size": [
+    2048,
+    2048
+   ],
+   "hashes": [
+    "f36aec8b7be24f10473e",
+    "dcd70dc2bfecb1a998e7",
+    "3b2ca19809b044a7df91",
+    "3d7a6966caad9c4475ea",
+    "7291773453239f4d97da",
+    "ec4d3c491a0aa6623907",
+    "a92b904df4e1dcd4e7c9",
+    "590734b52d4189fc1d9b"
+   ]
+  }
+ ]
+}

@@ -95,6 +95,45 @@ mist_ok = (export.faint_mist(_fx, _cards(21.0), _fb(0.009), _prof, np.eye(3)) or
 mist_ok &= export.faint_mist(_fx, _cards(21.0), _fb(0.0001), _prof, np.eye(3)) is None      # snowflake sheet
 mist_ok &= export.faint_mist(_fx, _cards(7.0), _fb(0.009), _prof, np.eye(3)) is None        # building steam
 mist_ok &= export.faint_mist(dict(_fx, category="surface"), _cards(21.0), _fb(0.009), _prof, np.eye(3)) is None
+# Known textures: a rip that holds a texture from a lower mip level down (streaming) still
+# matches it by the mip levels it shares; a hash that points to two roles decides nothing.
+import struct  # noqa: E402
+def _dds(path, levels):
+    h, w = levels[0].shape[:2]
+    head = struct.pack("<4s7I44x", b"DDS ", 124, 0x2100F, h, w, w * 4, 0, len(levels))
+    pf = struct.pack("<2I4s5I", 32, 0x41, bytes(4), 32, 0xFF, 0xFF00, 0xFF0000, 0xFF000000)
+    Path(path).write_bytes(head + pf + struct.pack("<5I", 0x401008, 0, 0, 0, 0) + b"".join(l.tobytes() for l in levels))
+_r = np.random.default_rng(7)
+_lv = [_r.integers(0, 255, (s, s, 4), dtype=np.uint8) for s in (64, 32, 16, 8, 4, 2, 1)]
+_dds(OUT / "full.dds", _lv)
+_dds(OUT / "streamed.dds", _lv[1:])                                  # the same texture, top level not loaded
+_dds(OUT / "flat.dds", [np.full((s, s, 4), 128, np.uint8) for s in (32, 16)])
+h_full, h_low = textures.mip_hashes(OUT / "full.dds"), textures.mip_hashes(OUT / "streamed.dds")
+_known = {h: {"ref": "ref/t0001", "role": "normal", "channels": "AG", "hashes": h_full} for h in h_full}
+_ents = {"a": {"role": "albedo", "details": {}, "hashes": h_low}, "b": {"role": "albedo", "details": {}, "hashes": ["x"]}}
+_hit = textures.apply_known(_ents, _known)
+_amb = {"a": {"role": "albedo", "details": {}, "hashes": h_low}}
+textures.apply_known(_amb, {**_known, h_low[1]: {"ref": "ref/t0002", "role": "gray", "hashes": [h_low[1]]}})
+known_ok = (len(h_full) == 3 and h_low == h_full[1:] and textures.mip_hashes(OUT / "flat.dds") == []
+            and _ents["a"]["role"] == "normal" and _ents["a"]["details"]["channels"] == "AG" and "a" in _hit
+            and _ents["a"]["known"]["ref"] == "ref/t0001" and _ents["b"]["role"] == "albedo" and "known" not in _ents["b"]
+            and _amb["a"]["role"] == "albedo")
+# The database helpers: add by DDS file or by hashes, get by either; the same texture added
+# from another rip updates its entry (and keeps where it was first checked) instead of a second one.
+_kdb = OUT / "known.json"
+_kdb.unlink(missing_ok=True)
+textures.known_add(_kdb, OUT / "full.dds", "normal", channels="AG", what="a note", ref="first/t0001")
+_again = textures.known_add(_kdb, h_low, "normal", channels="AG", ref="second/t0009")
+helpers_ok = (textures.known_get(_kdb, OUT / "streamed.dds")["ref"] == "first/t0001" and _again["what"] == "a note"
+              and textures.known_get(_kdb, ["nope"]) is None and len(json.loads(_kdb.read_text())["textures"]) == 1)
+from gtb.audit import audit  # noqa: E402
+audit_dir, audit_rows = audit(cap, plan=plan)
+checks.update({
+    "textures: a known texture is matched by its mip hashes, also when streamed at a lower level": known_ok,
+    "textures: known_add / known_get keep one entry per texture": helpers_ok,
+    "audit: writes the material sheets and the report": len(audit_rows) > 0 and (audit_dir / "report.md").exists()
+    and (audit_dir / "materials_01.png").exists(),
+})
 checks.update({
     "materials: an all-zero roughness channel is not a mirror": packed_channels({"R": "Roughness"}, flat_r) == {}
     and packed_channels({"R": "Roughness"}, {"details": {"mean_rgb": [0.7, 0.5, 0.1]}}) == {"R": "Roughness"},

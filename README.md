@@ -140,6 +140,14 @@ Other commands:
 
 Keys under `"unreal"` in `look.json` only affect Unreal: `exposure_offset` (stops), `bloom_intensity`, `bloom_threshold`, `warmup_frames`, `temporal_samples`, `anim_frames`, `fps`, `cvars`, `smoke_loop_seconds`, `mist` (the game's mist and haze cards: opacity and soft fades), `plume` (the sprite column; keys in `ue/look.py`) and `fluid_smoke` (the Niagara Fluids plume). Blender ignores them. Blender's volumetric smoke plumes (`smoke.enabled`) aren't used in Unreal.
 
+## Checking textures on a new rip
+
+```bash
+python gtb.py audit latest
+```
+
+This writes `captures/<name>/audit/`: sheets with one row per material (its textures, the role each one got, and a crop of the game screenshot where it appears) and a `report.md` that lists what to check first. For Frostpunk, a database of known textures (`profiles/frostpunk_textures.json`) gives every texture it recognises a role that was checked by eye; the audit marks those **K** and the guessed ones **?**. `python gtb.py known <capture>` lists the textures the database doesn't know, and `python gtb.py known <capture> t0018 --role normal:AG` records one you've checked. After fixing a role, run `python gtb.py textures <capture>`. `python gtb.py textures <capture> --save-known` saves all of a rip's textures to the table; fix an entry later if a texture turns out wrong.
+
 ## Self-test (no game needed)
 
 ```bash

@@ -444,7 +444,9 @@ def process(capture: Path):
     def samples_screen_buffer(d):
         for _, _, name in d.textures:
             if name not in header_size:
-                info = textures.dds_info(d.file.parent / name) if name.lower().endswith(".dds") else None
+                # A texture the draw names may not be in the folder (an incomplete copy of a rip).
+                path = d.file.parent / name
+                info = textures.dds_info(path) if name.lower().endswith(".dds") and path.exists() else None
                 header_size[name] = (info["width"], info["height"]) if info else None
             sz = header_size[name]
             if sz and any(abs(sz[0] - w) <= 2 and abs(sz[1] - h) <= 2 for w, h in screen_sizes):
@@ -607,6 +609,8 @@ def process(capture: Path):
             tex_entries[tex_ids[name]]["role"] = "shared"
     if shared:
         print(f"[process] {len(shared)} shared engine textures ignored (bound by many shader types)")
+    known = textures.load_known(cfg)
+    textures.apply_known(tex_entries, known)
     fixed = textures.slot_consensus(
         [(b["dd"].d.shaders[1], {str(s): tex_ids[n] for s, n in enumerate(b["tex"]) if n in tex_ids})
          for b in built if b["cat"] == "surface" and len(b["dd"].d.shaders) >= 2], tex_entries)
@@ -617,6 +621,12 @@ def process(capture: Path):
          for b in built if b["cat"] == "surface" and len(b["dd"].d.shaders) >= 2], tex_entries)
     for tid, (old, new) in layers.items():
         print(f"[process] texture {tid}: {old} -> {new} (a layer over several other albedos, not a base colour)")
+    textures.apply_known(tex_entries, known)
+    if known:
+        n = sum(1 for e in tex_entries.values() if e.get("known"))
+        print(f"[process] {n} of {len(tex_entries)} textures match the known-texture database "
+              f"({cfg['known_textures']}): they get its checked roles. The other {len(tex_entries) - n} use the "
+              f"rules; check them with `python gtb.py audit <capture>`")
     nr_shot = pick_reference_screenshot(capture, rip, (width, height), set(tex_ids))
     roles = Counter(e.get("role", "error") for e in tex_entries.values())
     print(f"[process] {len(tex_entries)} textures: {dict(roles)}")

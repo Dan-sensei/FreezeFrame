@@ -29,7 +29,7 @@ Without the rip, nothing about the scene can be recreated. The code, the profile
 | Ninja Ripper | 2.18 | Only needed for new captures. Settings are in `CLAUDE.md` (First run on a new PC). |
 | GPU | DX12, SM6, ray tracing | The Unreal project uses Lumen with hardware ray tracing. |
 
-Check the install before touching the capture. Every line of the self-test must say `PASS` (20 checks):
+Check the install before touching the capture. Every line of the self-test must say `PASS` (23 checks):
 
 ```bash
 python tests/selftest.py
@@ -55,10 +55,9 @@ python gtb.py all Frostpunk_20260929_115750
 
 This runs `process` (rip → `manifest.json` + meshes + textures), `build` (→ `scene.blend`) and `calibrate` (matches exposure to the screenshot). Expected console lines (the reference values):
 
-- `solved FOV from 1041 rigid draws: fov_y=55.00 deg, aspect=2.389`
-- `220 textures`. One of them is auto-detected as a shared engine texture and ignored.
-- `texture t0091: normal:AG -> albedo` and `texture t0159: albedo -> normal:AG`: the shader slot consensus correcting two roles. `t0018` and `t0084` are already classified as normals. See the texture-role note in `CLAUDE.md`.
-- `texture t0033: albedo -> detail (a layer over several other albedos, not a base colour)`: the game's 4096² snow/ice/moss/rock atlas, bound next to three different albedos. As a colour it painted the dead trees with a yellow moss tile.
+- `solved FOV from 690 rigid draws: fov_y=55.00 deg, aspect=2.389`
+- `converting 173 textures`. One of them is auto-detected as a shared engine texture and ignored.
+- `170 of 173 textures match the known-texture database (frostpunk_textures.json): they get its checked roles.` This rip is the database's reference, so all its hashable textures match. On another Frostpunk rip the count is lower: the rest are classified by the rules, and `python gtb.py audit <capture>` lists them for checking (see `CLAUDE.md`, "Known textures and the audit"). The database already holds the corrections the rules make on this rip (`t0091` an albedo, `t0018`, `t0084` and `t0159` normals, the `t0033` atlas a detail layer), so their `texture t####: ... -> ...` lines no longer print here.
 - `per-mesh winding: flipped 1353 meshes to match the game's normals`
 - `1 smoke plume(s) from smoke columns: ['mesh_5092_5092']` (the generator)
 - `7 decal volume(s) hidden (boxes that project a texture)`: the snow-stamp boxes on the cliff tops (`mesh_1591`–`1598`, `1601`).
@@ -175,6 +174,8 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 | path | what |
 |---|---|
 | `gtb/process.py`, `gtb/nr.py`, `gtb/textures.py` | Rip → manifest: camera solve, draw classification, textures, lights, winding, sprites, snow box, smoke plumes |
+| `gtb/audit.py` | `gtb.py audit`: material sheets (textures, roles, game screenshot crops) and a report of what to check |
+| `profiles/frostpunk_textures.json` | Known textures: mip hashes and checked roles of the reference capture's 170 textures ([KNOWN_TEXTURES.md](KNOWN_TEXTURES.md)) |
 | `gtb/scene_common.py` | Rules shared by both engines: default look, which texture is albedo, normal or mask |
 | `blender/` | Blender builder (`gtb_scene.py`) and the build, render and close-up scripts |
 | `ue/export.py`, `ue/look.py` | Manifest → Unreal plan and glb files; `look.json` → Unreal values |
@@ -191,6 +192,7 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 
 - **Different mesh or texture counts after `process`:** check that the rip folder is complete (6,195 `.nr` files) and that `profiles/frostpunk.json` is unchanged.
 - **FOV not solved:** pre-VS data is missing. Ninja Ripper needs "save pre-VS" on.
+- **Textures or colours look wrong on your own rip** (another frame, other buildings): don't guess from the viewport. Run `python gtb.py audit <capture>` and read `captures/<name>/audit/report.md` and the `materials_NN.png` sheets. Textures marked **K** matched the known-texture database and have checked roles; the ones marked **?** were guessed and are listed first, biggest on screen first, each beside a crop of the game screenshot. `python gtb.py known <capture>` lists the textures the database doesn't have, and `python gtb.py known <capture> <texture id> --role <role>` records one you've checked. Fix what's wrong as `CLAUDE.md` describes ("Known textures and the audit"), then `python gtb.py textures <capture>` and `python -m ue.live materials <capture>`. Material numbers differ between rips; the report says which reference material has the same albedo.
 - **Green, orange or blue streaked surfaces** (or flat, texture-less ones): a normal map is being used as colour, or the other way round. **Yellow-green or marbled patches on trees and rocks**: the `t0033` atlas is being used as colour. Captures processed before these texture-role fixes (2026-09-29) need `python gtb.py textures <capture>` once. It needs no rip and should change 5 roles on this capture: `t0018`, `t0084` and `t0159` become normals, `t0091` an albedo, and `t0033` a detail layer. Running it again changes nothing. Then run `build` (close `scene.blend` first) and `unreal`, or `python -m ue.live materials <capture>` with the editor open.
 - **A grey gap in the terrain or a cliff, seen from a free camera:** the game skipped terrain chunks outside its view, so they aren't in the rip (Blender has the same gaps). Nothing was deleted: compare the level with `plan.json`. See "What in the rip isn't the scene" in `CLAUDE.md`.
 - **Lights hanging over empty snow** (e.g. `GL0011`): the game's own fill lights, with no visible fixture. The user chose to keep them.
