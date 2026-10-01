@@ -19,7 +19,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from gtb import clips as clip_mod, config  # noqa: E402
+from gtb import clips as clip_mod  # noqa: E402
 from gtb.process import sprite_attributes  # noqa: E402
 from gtb.scene_common import (assign_slots, below_scene, decal_volume, load_look, overlay_layer,  # noqa: E402
                                packed_channels, scene_floor, srgb_to_linear)
@@ -717,7 +717,7 @@ def export(capture: Path, solo=False):
         # Animation clips (animations/*.fbx) for every walker; the look says who plays which.
         from ue.look import walker_settings     # ue.look imports this module
         ws = walker_settings(load_look(capture / "look.json"))
-        clip_list = clip_mod.library(config.load()["blender_exe"]) if clip_mod.CLIP_DIR.exists() else []
+        clip_list = clip_mod.library() if clip_mod.CLIP_DIR.exists() else []
         per_actor, walkers_info = walker_mod.plan(capture, manifest, [walking[n] for n in walker_actors], walk, soup,
                                                   walker_actors, ground, clips=clip_list, choice=ws["clips"],
                                                   period=float(ws["period"]))

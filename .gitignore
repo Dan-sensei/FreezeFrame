@@ -15,3 +15,6 @@ unreal_project/
 
 # Animation clips (Mixamo downloads): Mixamo's licence doesn't allow sharing the raw files
 animations/
+
+# Downloaded colour config (Blender's OCIO files, fetched by ue/colour_lut.py)
+.cache/

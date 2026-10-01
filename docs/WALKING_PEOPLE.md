@@ -215,7 +215,7 @@ Any walker can play an animation clip instead of the walk, e.g. Mixamo's zombie 
 
 1. On [mixamo.com](https://www.mixamo.com) (an Adobe login), pick an animation. Leave **In Place** off, so the clip keeps its travel: that becomes the speed along the person's route. A clip made in place plays on the spot.
 2. Download: **FBX Binary, Without Skin**, 30 fps, keyframe reduction none. Without Skin is the skeleton alone (Mixamo's own character; it doesn't matter which).
-3. Save it as `animations/<name>.fbx` (e.g. `animations/zombie_crawl.fbx`). The folder is out of git: Mixamo's licence lets you use the animations in your work but not share the files. Blender reads each one once into `animations/<name>.npz` (`blender/fbx_clip.py`).
+3. Save it as `animations/<name>.fbx` (e.g. `animations/zombie_crawl.fbx`). The folder is out of git: Mixamo's licence lets you use the animations in your work but not share the files. `gtb/fbx.py` reads them: binary FBX, no Blender needed. Checked against Blender 5.2's import of the zombie crawl: bone heads within 2 µm, and the retargeted person identical (0.00 mm).
 
 Any FBX with Mixamo's bone names works (`mixamorig:Hips`, `LeftArm`, ...; the prefix doesn't matter).
 
@@ -317,7 +317,7 @@ Not done: clips for the people lying down or on crutches (they have no route or 
 |---|---|
 | `gtb/characters.py` | Skin data (`skin_arrays`, `backfill`), the rig, the bone solve (`Person`), the walk cycle (`fit_walk`, `Walk`) |
 | `ue/walkers.py` | Finding the walkers, the baked cycle, their routes (or lanes), the textures and plan entries (with every clip's); `replay` mirrors the shader |
-| `gtb/clips.py`, `blender/fbx_clip.py` | Animation clips: reading an FBX (Blender), retargeting it onto a person |
+| `gtb/clips.py`, `gtb/fbx.py` | Animation clips: reading a binary FBX (no Blender), retargeting it onto a person |
 | `ue/anim.py` | Swapping a person's clip in the open editor |
 | `animations/` | The clips (`<name>.fbx`, out of git) |
 | `ue/routes.py` | The walkable map (`WalkMap`), the roads (`road_meshes`), the routes (`plan_route`, `route_points`) |

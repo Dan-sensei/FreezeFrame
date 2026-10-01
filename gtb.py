@@ -17,6 +17,9 @@
   python gtb.py open <capture>        open scene.blend in Blender
   python gtb.py all <capture>         process + build + calibrate
 
+Blender is needed only for build, render, calibrate, closeups, open and all. The Unreal
+path is `process` then `unreal`, without Blender.
+
   python gtb.py unreal <capture>           build an Unreal level (UE 5.x) and render/compare it
   python gtb.py unreal-look <capture>      re-apply look.json to the Unreal level, render, compare
   python gtb.py unreal-render <capture>    render stills (--anim: the Level Sequence)
@@ -50,7 +53,18 @@ def resolve_capture(cfg, name):
     return p if p.is_absolute() or p.exists() else base / name
 
 
+def has_blender(cfg):
+    return Path(cfg["blender_exe"]).exists()
+
+
+def need_blender(cfg):
+    if not has_blender(cfg):
+        sys.exit(f"Blender isn't installed ({cfg['blender_exe']}; set blender_exe in config.json). "
+                 "The Unreal path doesn't need it: python gtb.py process <capture>, then python gtb.py unreal <capture>.")
+
+
 def run_blender(cfg, args):
+    need_blender(cfg)
     cmd = [cfg["blender_exe"], "-b", "--factory-startup", *args]
     r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     for line in r.stdout.splitlines():
@@ -179,11 +193,13 @@ def cmd_import(cfg, src, name=None):
     (out / "capture.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"[gtb] capture {out.name}: {exe} {size[0]}x{size[1]} from {rip}"
           f"{'' if shot else ' (no Ninja Ripper screenshot found: add screenshot.png yourself)'}")
-    print(f"[gtb] next: python gtb.py all {out.name}")
+    print(f"[gtb] next: python gtb.py all {out.name}" if has_blender(cfg) else
+          f"[gtb] next: python gtb.py process {out.name}, then python gtb.py unreal {out.name}")
     return out
 
 
 def cmd_open(cfg, cap):
+    need_blender(cfg)
     subprocess.Popen([cfg["blender_exe"], str(cap / "scene.blend")])
 
 
@@ -193,6 +209,9 @@ def on_capture(cfg):
             return
         try:
             cmd_process(cfg, cap)
+            if not has_blender(cfg):
+                print(f"[gtb] processed; no Blender, so no scene.blend. Unreal: python gtb.py unreal {cap.name}")
+                return
             cmd_build(cfg, cap)
             cmd_calibrate(cfg, cap)
             if cfg["auto_open"]:

@@ -23,13 +23,13 @@ Without the rip, nothing about the scene can be recreated. The code, the profile
 
 | tool | tested version | notes |
 |---|---|---|
-| Python | 3.13.1 (3.11+ works) | `python -m pip install -r requirements.txt` (numpy, pillow ≥ 11, opencv-python, pynput) |
-| Blender | 5.2 | `blender_exe` in `config.json` (default `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`). Always run it with `--factory-startup`. |
+| Python | 3.13.1 (3.11+ works) | `python -m pip install -r requirements.txt` (numpy, pillow ≥ 11, opencv-python, pynput, opencolorio) |
+| Blender | 5.2 (optional for Unreal) | For the Blender scene (step 3). `blender_exe` in `config.json` (default `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`). Always run it with `--factory-startup`. **Unreal only:** skip Blender, and in step 3 run `python gtb.py process Frostpunk_20260929_115750` instead of `all`. The colour LUT then uses Blender 5.2's colour config, downloaded once (about 4 MB) into `.cache/`, and gives the same colours. After the Unreal build, `python gtb.py unreal-calibrate Frostpunk_20260929_115750` takes the place of Blender's exposure calibration (not needed with `frostpunk_day`, which has its own exposure). |
 | Unreal Engine | 5.8.3 (Epic launcher install) | Found automatically under `C:\Program Files\Epic Games\UE_5.x`, or set `unreal_editor` in `config.json` to `...\Engine\Binaries\Win64\UnrealEditor-Cmd.exe`. The project that `gtb.py` generates turns on the Python, Editor Scripting, Movie Render Queue, Sequencer Scripting, Niagara Fluids, Toolset Registry and Niagara Toolsets plugins. |
 | Ninja Ripper | 2.18 | Only needed for new captures. Settings are in `CLAUDE.md` (First run on a new PC). |
 | GPU | DX12, SM6, ray tracing | The Unreal project uses Lumen with hardware ray tracing. |
 
-Check the install before touching the capture. Every line of the self-test must say `PASS` (28 checks):
+Check the install before touching the capture. Every line of the self-test must say `PASS` (30 checks; without Blender, the two that need it say `SKIP`):
 
 ```bash
 python tests/selftest.py
@@ -48,6 +48,8 @@ The command takes the newest `frame_*` folder and reads the exe and resolution (
 **A new rip instead**: run `python gtb.py watch`, launch the game through Ninja Ripper (for Steam, fully exit Steam first), hide the HUD and press PrintScreen. The daemon creates the capture folder and runs step 3 by itself.
 
 ## 3. Blender: process, build, calibrate (about 8 min)
+
+Without Blender (Unreal only), run `python gtb.py process Frostpunk_20260929_115750` instead: the same console lines up to the texture ones, then go to the Unreal step. Exposure: Blender's `calibrate` matches the look's exposure to the game screenshot. Without Blender, run `python gtb.py unreal-calibrate <capture>` after `unreal` (the editor closed; up to 4 headless renders of about 40 s): it moves `look.unreal.exposure_offset`, which Unreal applies before the colour transform, like Blender's exposure. Looks with their own exposure don't need it: `frostpunk_day` (−1.4, `calibrate: false`) is one; `frostpunk_night` and a new capture's default look are not. `gtb.py unreal` reminds you.
 
 ```bash
 python gtb.py all Frostpunk_20260929_115750
@@ -186,12 +188,12 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 | `gtb/scene_common.py` | Rules shared by both engines: default look, which texture is albedo, normal or mask |
 | `blender/` | Blender builder (`gtb_scene.py`) and the build, render and close-up scripts |
 | `ue/export.py`, `ue/look.py` | Manifest → Unreal plan and glb files; `look.json` → Unreal values |
-| `ue/blender_lut.py` | Blender bakes its own grade and AgX into the LUT that Unreal applies |
+| `ue/colour_lut.py` | Bakes Blender's grade and AgX into the LUT that Unreal applies, without Blender (OpenColorIO with Blender's colour config; `--compare-blender` checks it against `ue/blender_lut.py`, Blender's own bake) |
 | `ue/editor/` | Runs inside Unreal: master materials (`gtb_hlsl.py`, `gtb_materials.py`) and the level build (`gtb_ue.py`) |
 | `ue/pipeline.py` | Runs Unreal headless (commandlet, then Movie Render Queue) and writes the comparison sheets |
 | `gtb/characters.py` | People: each one's bones solved from its skinned draw, the walk cycle fitted to the walkers |
 | `ue/walkers.py`, `ue/routes.py`, `ue/walker_check.py` | Walking people for Unreal: the baked cycle, routes along the city's streets (a walkable map from the rip), the two data textures, a numpy replay of `M_GTB_Walker`, and its checks ([WALKING_PEOPLE.md](WALKING_PEOPLE.md)) |
-| `gtb/clips.py`, `blender/fbx_clip.py`, `ue/anim.py` | Animation clips (Mixamo FBX in `animations/`, not in git): read by Blender, retargeted onto each walker, swapped live with `python -m ue.anim` |
+| `gtb/clips.py`, `gtb/fbx.py`, `ue/anim.py` | Animation clips (Mixamo FBX in `animations/`, not in git): read without Blender, retargeted onto each walker, swapped live with `python -m ue.anim` |
 | `ue/cloth_check.py` | Replays the banner flutter in numpy and reports banners that move into geometry |
 | `ue/live.py` | Pushes the banners, all material instances, the sprite column, the sprites or the walking people into the open editor (`cloth` / `materials` / `plume` / `sprites` / `walkers`) |
 | `ue/fluid_smoke.py` | Builds the generator's Niagara Fluids smoke in the open editor ([GENERATOR_SMOKE.md](GENERATOR_SMOKE.md)) |

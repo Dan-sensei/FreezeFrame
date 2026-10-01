@@ -2,6 +2,9 @@
 
   python tests/selftest.py
 
+Without Blender (config.json blender_exe), it runs `process` instead of `all` and the
+checks that need Blender say SKIP.
+
 Asserts the camera solve recovers the synthetic camera (fov 45, 16:9) and that
 the junk draws (UI quad, shadow pass, depth prepass) are filtered out.
 """
@@ -14,9 +17,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "captures" / "_selftest"
 
+sys.path.insert(0, str(ROOT))
+from gtb import config  # noqa: E402
+BLENDER = Path(config.load()["blender_exe"]).exists()
+
 shutil.rmtree(OUT, ignore_errors=True)
 subprocess.run([sys.executable, str(ROOT / "tests" / "make_fake_rip.py"), str(OUT)], check=True)
-subprocess.run([sys.executable, str(ROOT / "gtb.py"), "all", str(OUT / "capture")], check=True)
+subprocess.run([sys.executable, str(ROOT / "gtb.py"), "all" if BLENDER else "process", str(OUT / "capture")], check=True)
 
 m = json.loads((OUT / "capture" / "manifest.json").read_text())
 cam, stats = m["camera"], m["stats"]
@@ -28,13 +35,11 @@ checks = {
     # (they are untextured, so the "untextured" rule usually wins).
     "3 junk draws removed": sum(stats["skipped"].values()) == 3,
     "6 meshes kept": stats["kept"] == 6,
-    "scene.blend written": (OUT / "capture" / "scene.blend").exists(),
+    "scene.blend written": (OUT / "capture" / "scene.blend").exists() if BLENDER else None,
 }
 
-# Unreal export (no Unreal needed): plan, glb geometry and the Blender-baked colour LUT.
-sys.path.insert(0, str(ROOT))
+# Unreal export (no Unreal needed): plan, glb geometry and the colour LUT (OpenColorIO).
 import numpy as np  # noqa: E402
-from gtb import config  # noqa: E402
 from gtb.scene_common import load_look  # noqa: E402
 from ue import export, pipeline  # noqa: E402
 
@@ -50,6 +55,20 @@ import cv2  # noqa: E402
 L = cv2.imread(str(lut), cv2.IMREAD_UNCHANGED)
 n = L.shape[0]
 grey = [L[i, i * n + i, 1] for i in range(n)]   # r = g = b along the diagonal
+# The same LUT from Blender (ue/blender_lut.py), for a graded look: within 4/65535.
+lut_vs_blender = None
+if BLENDER:
+    from ue import colour_lut  # noqa: E402
+    from ue.look import LUT_HI, LUT_LO, LUT_SIZE  # noqa: E402
+    _graded = OUT / "graded_look.json"
+    _graded.write_text(json.dumps({"look": "AgX - Punchy", "exposure": 0.5, "gamma": 1.1, "grade": {
+        "saturation": 1.2, "contrast": 14.0, "brightness": 3.0, "lift": [0.97, 0.99, 1.04], "gamma": [0.95, 1.0, 1.05],
+        "gain": [1.03, 1.0, 0.97]}}))
+    colour_lut.bake(load_look(_graded), OUT / "lut_ocio.png", LUT_SIZE, LUT_LO, LUT_HI, config.load()["blender_exe"])
+    subprocess.run([config.load()["blender_exe"], "-b", "--factory-startup", "--python",
+                    str(ROOT / "ue" / "blender_lut.py"), "--", str(_graded), str(OUT / "lut_blender.png"),
+                    str(LUT_SIZE), str(LUT_LO), str(LUT_HI)], capture_output=True, check=True)
+    lut_vs_blender = colour_lut.compare(OUT / "lut_ocio.png", OUT / "lut_blender.png")[0] <= 4
 imp = subprocess.run([sys.executable, str(ROOT / "gtb.py"), "import", str(Path(m["textures"]["t0000"]["source"]).parent),
                       "--name", "_selftest/imported"], capture_output=True, text=True)
 imp_meta = json.loads((OUT / "imported" / "capture.json").read_text()) if imp.returncode == 0 else {}
@@ -203,6 +222,88 @@ for _k in range(48):
     _on = (_a[:, 2] < 0.01) & (_b2[:, 2] < 0.01)
     if _on.any():
         _slip.append(np.linalg.norm((_b2[_on] - _a[_on])[:, :2], axis=1).min())
+# FBX reader (gtb/fbx.py): a binary FBX written here, two bones: a root 100 cm up (Y-up,
+# centimetres) turned 90 degrees about Y, and a child 50 cm along its x, animated from 0
+# to 90 degrees about z over 1 s at 30 fps. Blender axes: the root at (0, 0, 1) m.
+import struct as _st  # noqa: E402
+import zlib as _zl  # noqa: E402
+from gtb import fbx as fbx_mod  # noqa: E402
+
+
+def _fbx_prop(v):
+    if isinstance(v, str):
+        b = v.encode()
+        return b"S" + _st.pack("<I", len(b)) + b
+    if isinstance(v, float):
+        return b"D" + _st.pack("<d", v)
+    if isinstance(v, int):
+        return (b"L" + _st.pack("<q", v)) if abs(v) > 2 ** 31 - 1 else (b"I" + _st.pack("<i", v))
+    a = np.asarray(v)
+    code, dt = {"f": (b"f", "<f4"), "i": (b"l", "<i8")}[a.dtype.kind]
+    raw = _zl.compress(a.astype(dt).tobytes())
+    return code + _st.pack("<III", len(a), 1, len(raw)) + raw
+
+
+def _fbx_node(name, props=(), children=(), at=0):
+    pb = b"".join(_fbx_prop(p) for p in props)
+    head = 25 + len(name) + len(pb)
+    body, o = b"", at + head
+    for c in children:
+        cb = c(o)
+        body += cb
+        o += len(cb)
+    if children:
+        body += b"\0" * 25
+    end = at + head + len(body)
+    return _st.pack("<QQQB", end, len(props), len(pb), len(name)) + name.encode() + pb + body
+
+
+def _N(name, props=(), children=()):
+    return lambda at: _fbx_node(name, props, children, at)
+
+
+def _P(name, *vals):
+    return _N("P", (name, "", "", "A") + vals)
+
+
+_ticks = fbx_mod.TICKS
+_doc = [
+    _N("GlobalSettings", (), [_N("Properties70", (), [_P("UpAxis", 1), _P("UnitScaleFactor", 1.0), _P("TimeMode", 6)])]),
+    _N("Objects", (), [
+        _N("Model", (10, "Root\x00\x01Model", "LimbNode"), [_N("Properties70", (), [
+            _P("Lcl Translation", 0.0, 100.0, 0.0), _P("Lcl Rotation", 0.0, 90.0, 0.0)])]),
+        _N("Model", (11, "Tip\x00\x01Model", "LimbNode"), [_N("Properties70", (), [
+            _P("Lcl Translation", 50.0, 0.0, 0.0)])]),
+        _N("AnimationStack", (20, "Take\x00\x01AnimStack", ""), [_N("Properties70", (), [
+            _P("LocalStart", 0), _P("LocalStop", _ticks)])]),
+        _N("AnimationCurveNode", (30, "R\x00\x01AnimCurveNode", ""), [_N("Properties70", (), [
+            _P("d|X", 0.0), _P("d|Y", 0.0), _P("d|Z", 0.0)])]),
+        _N("AnimationCurve", (40, "\x00\x01AnimCurve", ""), [
+            _N("KeyTime", (np.array([0, _ticks], dtype=np.int64),)),
+            _N("KeyValueFloat", (np.array([0.0, 90.0], dtype=np.float32),))]),
+    ]),
+    _N("Connections", (), [_N("C", ("OO", 11, 10)), _N("C", ("OP", 40, 30, "d|Z")),
+                           _N("C", ("OP", 30, 11, "Lcl Rotation"))]),
+]
+_out, _o = b"Kaydara FBX Binary  \x00\x1a\x00" + _st.pack("<I", 7700), 27
+for _n in _doc:
+    _b = _n(_o)
+    _out += _b
+    _o += len(_b)
+(OUT / "two_bones.fbx").write_bytes(_out + b"\0" * 25)
+_fc = fbx_mod.skeleton_clip(OUT / "two_bones.fbx")
+_names = list(_fc["names"])
+_tip = _names.index("Tip")
+# Root turned 90 deg about FBX y: its x axis points along FBX -z, i.e. Blender +y; the tip
+# sits 0.5 m along it at rest. At the end the tip bone has turned 90 deg about its own z
+# (FBX y-up z), which doesn't move its head but turns its x axis to the root's y.
+fbx_ok = (len(_fc["head"]) == 31 and _fc["fps"] == 30 and _names == ["Root", "Tip"]
+          and np.allclose(_fc["rest_head"][0], [0, 0, 1.0], atol=1e-6)
+          and np.allclose(_fc["rest_head"][_tip], [0, 0.5, 1.0], atol=1e-6)
+          and np.allclose(_fc["rot"][-1][_tip] @ [1, 0, 0], _fc["rot"][-1][0] @ [0, 1, 0], atol=1e-6)
+          and np.allclose(_fc["rot"][15][_tip] @ [1, 0, 0],
+                          (_fc["rot"][0][0] @ [1, 0, 0] + _fc["rot"][0][0] @ [0, 1, 0]) / np.sqrt(2), atol=1e-6))
+
 # Clips (gtb/clips.py): a Mixamo-style skeleton on the same joints, at rest in a T-pose and
 # facing -y like a Mixamo FBX in Blender, crawling 1 m forward per loop of 8 frames with its
 # left arm swinging. Retargeted onto the person (who binds in an A-pose), the upper arm
@@ -290,8 +391,11 @@ checks.update({
     "unreal plan: camera forward (x, -y, z)": np.allclose(plan["camera"]["forward"], fwd, atol=1e-4),
     "unreal glb valid": data[:4] == b"glTF" and len(plan["glb_meshes"][glb]) == 6,
     "unreal LUT 64^3, grey ramp rises": L.shape[:2] == (64, 64 * 64) and all(np.diff(grey) >= 0) and grey[-1] > grey[0],
+    "unreal LUT: the OpenColorIO bake matches Blender's (graded look, AgX - Punchy)": lut_vs_blender,
+    "people: the FBX reader (binary records, Y-up cm to Blender axes, animated rotation)": fbx_ok,
 })
 for k, ok in checks.items():
-    print(f"  {'PASS' if ok else 'FAIL'}  {k}")
-print(f"comparison sheet: {OUT / 'capture' / 'comparison.png'}")
-sys.exit(0 if all(checks.values()) else 1)
+    print(f"  {'SKIP' if ok is None else 'PASS' if ok else 'FAIL'}  {k}")
+if BLENDER:
+    print(f"comparison sheet: {OUT / 'capture' / 'comparison.png'}")
+sys.exit(0 if all(ok is not False for ok in checks.values()) else 1)

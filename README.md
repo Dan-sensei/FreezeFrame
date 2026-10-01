@@ -12,7 +12,9 @@ game ──(Ninja Ripper frame rip + our screenshot, same keypress)──▶ cap
 
 ## One-time setup
 
-0. Python 3.11+ and Blender 5.2+. Install packages: `python -m pip install -r requirements.txt`, then check with `python tests/selftest.py` (all PASS).
+0. Python 3.11+, and Blender 5.2+ for the Blender scene. Install packages: `python -m pip install -r requirements.txt`, then check with `python tests/selftest.py` (all PASS; without Blender, the two Blender checks say SKIP).
+   - **Unreal only? Blender is optional.** The Unreal path is `python gtb.py process <capture>`, then `python gtb.py unreal <capture>`. The colour LUT goes through OpenColorIO with Blender's own colour config: the installed Blender's, or else Blender 5.2's, downloaded once (about 4 MB) into `.cache/`. Mixamo clips are read by `gtb/fbx.py`. Without Blender, the capture daemon processes each rip but builds no `scene.blend`.
+   - Exposure: Blender's `calibrate` matches the look's exposure to the game screenshot. Without Blender, run `python gtb.py unreal-calibrate <capture>` after `unreal` (the editor closed; up to 4 headless renders of about 40 s): it moves `look.unreal.exposure_offset`, which Unreal applies before the colour transform, like Blender's exposure. Looks with their own exposure don't need it: `frostpunk_day` (−1.4, `calibrate: false`) is one; `frostpunk_night` and a new capture's default look are not. `gtb.py unreal` reminds you.
 
 1. **Ninja Ripper 2.x.** Download it from ninjaripper.com (it's paid, through Patreon or Boosty) and extract it.
 2. **Disable overlays**: Steam, GeForce/AMD, RTSS/Afterburner, OBS. Turn off DLSS/FSR/XeSS. Run the game **borderless windowed**, because screenshots of exclusive fullscreen can come out black.
@@ -113,14 +115,14 @@ python gtb.py unreal latest
 
 This command builds and saves a level in a generated project, `unreal_project/FreezeFrame.uproject`. Each capture's level is at `/Game/GTB/<capture>/<capture>`. The command then renders it headless with Movie Render Queue and writes `captures/<name>/unreal/`:
 - `comparison.png`: the Unreal render compared with the game screenshot.
-- `parity.png`: the game, Blender and Unreal side by side, for the game camera and the three close-ups.
+- `parity.png`: the game, Blender and Unreal side by side, for the game camera and the three close-ups (game and Unreal only, without Blender or a `scene.blend`).
 - `metrics.json`: the numbers, including a `vs_blender` block.
 
 The build reads `manifest.json` directly, so Unreal makes the same decisions as the Blender builder:
 - **Meshes** keep their per-mesh winding and custom normals.
 - **Materials** follow the same rules as Blender. Albedo alpha is a cut-out mask. A+G normals carry R as roughness. Roof snow goes on up-facing surfaces, using a port of Blender's noise so the patches match. Snow drifts get the snow material, and untextured terrain gets a flat colour. All per-look values live on one material instance per master, `MI_Look_*`.
 - **Lighting** comes from `look.json` in the same units as Blender. The sun becomes a directional light and the sky a flat sky light plus a dome. Depth fog becomes an exponential height fog, converted exactly. The 384 game lights become point lights (P / 4π candela).
-- **Colour**: Blender bakes its own grade and AgX look into a 3D LUT. A post-process material that replaces Unreal's tonemapper applies it, so the same `look.json` produces the same colours.
+- **Colour**: Blender's grade and AgX look, baked into a 3D LUT by `ue/colour_lut.py` (the grade in numpy, AgX through OpenColorIO with Blender's colour config; within 2–3/65535 of Blender's own bake, no Blender needed). A post-process material that replaces Unreal's tonemapper applies it, so the same `look.json` produces the same colours.
 - **Smoke and fire sprites** are re-faced to the camera by their material. They fade out softly where they meet geometry, so they don't cut hard lines. The game's mist and haze (big soft smoke cards: the ground mist over the city, haze on the crater walls, wind-blown haze over the ice) get their own look, `MI_Look_Mist`, with a long fade near buildings and near the camera. **Snowfall** is 100k flake quads placed by the material from time and camera, like the Blender geometry nodes. Both are driven by a time parameter that the Level Sequence animates, so stills are repeatable and scrubbing works. In the editor viewport and in Play, the snow keeps falling and the game's smoke puffs rise and fade in a short loop (`unreal.smoke_loop_seconds`), so they stay where the game drew them. In `LS_Anim` they drift up like in Blender.
 - **Smoke columns**, such as the generator's, are drawn by the game from a live render target that can't be ripped. The build rebuilds them as a column of the game's own smoke puffs, rising from the furnace, lit by its fire, with flames at the base. Height, widening, colour and density come from `look.smoke`, like Blender's volumetric plume, which is off in the Frostpunk presets. Extra columns can be added with `smoke.emitters`.
 - **The generator's smoke has a second version you can choose instead:** a Niagara Fluids simulation, light, billowing smoke rising out of the furnace. With the editor open, `python -m ue.fluid_smoke <capture>` builds it, and `python -m ue.fluid_smoke <capture> --show fluid|sprites` switches between the two at any time. `gtb.py unreal` reminds you of the choice. See [docs/GENERATOR_SMOKE.md](docs/GENERATOR_SMOKE.md).

@@ -103,15 +103,12 @@ def bake_lut(cfg, cap, look):
     key = ue_look_mod.lut_key(look)
     if out.exists() and key_file.exists() and key_file.read_text() == key:
         return out
-    cmd = [cfg["blender_exe"], "-b", "--factory-startup", "--python", str(ROOT / "ue" / "blender_lut.py"), "--",
-           str(cap / "look.json"), str(out), str(ue_look_mod.LUT_SIZE), str(ue_look_mod.LUT_LO),
-           str(ue_look_mod.LUT_HI)]
-    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
-    if r.returncode != 0 or not out.exists() or "Traceback" in r.stdout + r.stderr:
-        print(r.stdout[-2000:], r.stderr[-2000:])
-        sys.exit("LUT bake failed")
+    # Blender's grade and view transform through OpenColorIO (ue/colour_lut.py): no Blender
+    # needed; with Blender installed, its own colour config is used.
+    from ue import colour_lut
+    colour_lut.bake(look, out, ue_look_mod.LUT_SIZE, ue_look_mod.LUT_LO, ue_look_mod.LUT_HI, cfg.get("blender_exe"))
     key_file.write_text(key)
-    print(f"[ue] colour LUT baked by Blender ({look['view_transform']}, {look['look']}, exposure {look['exposure']:+.2f})")
+    print(f"[ue] colour LUT baked ({look['view_transform']}, {look['look']}, exposure {look['exposure']:+.2f})")
     return out
 
 
@@ -221,8 +218,8 @@ def blender_reference(cfg, cap, look):
     key = json.dumps({k: v for k, v in look.items() if k != "unreal"}, sort_keys=True)   # Blender ignores "unreal"
     if (bdir / "look.key").exists() and (bdir / "look.key").read_text() == key and (bdir / "game.png").exists():
         return bdir
-    if not (cap / "scene.blend").exists():
-        return None
+    if not (cap / "scene.blend").exists() or not Path(cfg["blender_exe"]).exists():
+        return None                       # the sheet shows game | Unreal
     print("[ue] rendering the Blender reference for the same look")
     for script, args in (("render.py", [str(cap), str(bdir / "game.png")]),
                          ("closeups.py", [str(cap), str(bdir / "closeup")])):
@@ -311,7 +308,20 @@ def cmd_unreal(cfg, cap, do_render=True):
     run_editor(cfg, cap, "build")
     if do_render:
         compare_all(cfg, cap, look, render(cfg, cap))
+    calibrate_notice(cfg, cap)
     smoke_choice_notice(cap, plan)
+
+
+def calibrate_notice(cfg, cap):
+    """A look whose exposure comes from calibration (no "exposure" in look.json, e.g. a new
+    capture's default or frostpunk_night) gets it from Blender's `gtb.py calibrate`. Without
+    Blender nothing set it, so the level is at exposure 0: say how to match it in Unreal."""
+    path = cap / "look.json"
+    raw = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    if raw.get("calibrate") is False or "exposure" in raw or "exposure_offset" in (raw.get("unreal") or {}):
+        return
+    print("[ue] this look's exposure comes from calibration, which hasn't run (Blender's `gtb.py calibrate` "
+          f"sets it). Match it to the screenshot in Unreal: python gtb.py unreal-calibrate {cap.name}")
 
 
 def cmd_look(cfg, cap, do_render=True):

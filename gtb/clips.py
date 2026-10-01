@@ -4,7 +4,7 @@ solved bones (gtb/characters.py), in the same form as the baked walk cycle, so t
 walker material plays it along the person's route.
 
 The clips live in animations/ (<name>.fbx, out of git: Mixamo's licence doesn't allow
-sharing the files). Blender reads each FBX once (blender/fbx_clip.py) into <name>.npz.
+sharing the files). gtb/fbx.py reads them (binary FBX; no Blender needed).
 
 Retargeting: each rig bone copies its Mixamo bone's turn away from Mixamo's rest pose,
 in world space (both rests stand upright, facing forward). The rests differ in the
@@ -15,7 +15,6 @@ scaled by hip height. The clip's travel over a cycle becomes the stride the shad
 carries the person along its route by; what's left of the hips' motion stays in the
 bones."""
 import math
-import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -112,26 +111,20 @@ class Clip:
         return R, h + [0.0, 0.0, self.head[0, hips][2]]
 
 
-def read(fbx, blender_exe):
-    """The clip in an FBX, read by Blender once (cached next to it as .npz)."""
-    fbx = Path(fbx)
-    npz = fbx.with_suffix(".npz")
-    if not npz.exists() or npz.stat().st_mtime < fbx.stat().st_mtime:
-        cmd = [blender_exe, "-b", "--factory-startup", "--python", str(ROOT / "blender" / "fbx_clip.py"), "--",
-               str(fbx), str(npz)]
-        r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
-        if r.returncode != 0 or not npz.exists() or "Traceback" in r.stdout + r.stderr:
-            raise RuntimeError(f"Blender couldn't read {fbx.name}:\n{r.stdout[-1500:]}\n{r.stderr[-1500:]}")
-    return Clip(fbx.stem, dict(np.load(npz)))
+def read(path):
+    """The clip in an FBX (gtb/fbx.py)."""
+    from gtb import fbx
+    path = Path(path)
+    return Clip(path.stem, fbx.skeleton_clip(path))
 
 
-def library(blender_exe, clip_dir=CLIP_DIR, log=print):
+def library(clip_dir=CLIP_DIR, log=print):
     """Every clip in animations/ (sorted by name), skipping files that aren't Mixamo-like."""
     out = []
     for f in sorted(Path(clip_dir).glob("*.fbx")):
         try:
-            c = read(f, blender_exe)
-        except (RuntimeError, KeyError) as e:
+            c = read(f)
+        except (ValueError, KeyError, StopIteration) as e:
             log(f"[clips] {f.name} skipped: {e}")
             continue
         out.append(c)
