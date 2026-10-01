@@ -29,7 +29,7 @@ Without the rip, nothing about the scene can be recreated. The code, the profile
 | Ninja Ripper | 2.18 | Only needed for new captures. Settings are in `CLAUDE.md` (First run on a new PC). |
 | GPU | DX12, SM6, ray tracing | The Unreal project uses Lumen with hardware ray tracing. |
 
-Check the install before touching the capture. Every line of the self-test must say `PASS` (23 checks):
+Check the install before touching the capture. Every line of the self-test must say `PASS` (26 checks):
 
 ```bash
 python tests/selftest.py
@@ -91,7 +91,8 @@ python gtb.py unreal Frostpunk_20260929_115750
 
 The first ever run also compiles shaders and textures, which takes a few minutes more. Expected output:
 
-- `plan: {'surface': 1298, 'cloth': 44, 'effect': 716, 'sprite': 47, 'snowdrift': 241}, 112 materials, ... 384 game lights`. That is one more material than Blender's 111, because the ground-mist cards get their own (`MI_Sprite_mist_t0114`). The other mist materials replace ones Blender also has. The 3 extra sprites are mist layers that Blender keeps hidden (see step 6). `cloth` counts the red banners that flutter (they are also counted in `surface`). The export ray-casts each banner's clearance to the walls and frames around it, in a few seconds. `python -m ue.cloth_check Frostpunk_20260929_115750` must then print `0 banner(s) clip, 0 jerky, 4 barely move`.
+- `plan: {'surface': 1298, 'cloth': 44, 'walker': 11, 'effect': 716, 'sprite': 47, 'snowdrift': 241}, 117 materials, ... 384 game lights`. That is one more material than Blender's 111 because the ground-mist cards get their own (`MI_Sprite_mist_t0114`), plus 5 `MI_Walk_*` for the walking people. The other mist materials replace ones Blender also has. The 3 extra sprites are mist layers that Blender keeps hidden (see step 6). `cloth` counts the red banners that flutter, and `walker` the people who walk (both are also counted in `surface`). The export ray-casts each banner's clearance to the walls and frames around it, in a few seconds. `python -m ue.cloth_check Frostpunk_20260929_115750` must then print `0 banner(s) clip, 0 jerky, 4 barely move`.
+- People, before the plan line (about 20 s): `[people] 25 people: 11 walk, 2 upright on a crutch and 12 lying keep their pose`, `walk cycle from 11 walkers: legs within 3.3 deg rms`, one loop line per walker (2.6–17.7 m, stride 2.2–2.4 m for adults and 1.6 m for children), and `2 with no room to walk keep their pose: ['mesh_1519_1519', 'mesh_637_637']`. The first export of a capture processed before 2026-10-01 reads the people's bind pose from the rip once (`skin data of 263 skinned meshes read from the rip`); without the rip, nobody walks.
 - The build takes about 60 s, with `smoke columns: 1` and `done (0 warnings)`.
 - `4 frame(s)` rendered by Movie Render Queue in about 25 s.
 - Night look: about 0.1 stops from the screenshot and from Blender's game view. Edge alignment against Blender is only 0.6–0.75, because the dense night snowfall uses different random flakes in each engine.
@@ -167,6 +168,11 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
   - None passes through a wall, beam or pole, and none snaps.
   - A zigzag along a long banner means `look.unreal.cloth.wavelength` is too short (keep it at 0.6 or more).
   - With the editor open, `python -m ue.live cloth Frostpunk_20260929_115750` re-applies them.
+- **People (Unreal only; all details in [WALKING_PEOPLE.md](WALKING_PEOPLE.md)):** 9 of the people walk loops through the streets, in the stride the game's own walkers have: heel strike, the swinging knee bent, arms swinging opposite the legs, the planted foot still (it slips less than 1 cm/s). At time 0 each stands about where the game had it; in the editor viewport they walk all the time. Children step faster. They turn round in a half circle at each end of their loop. The 12 people lying in the snow, the 2 on crutches (`mesh_642`, `mesh_649`) and the 2 in cramped spots (`mesh_1519` under a ledge, `mesh_637` between a crate and a wall) keep their pose.
+  - Each walker's mesh has its own `MI_Walk_*` instance (the base material's values) on `MI_Look_Walker`, and sits in the `People` folder.
+  - `MI_Look_Walker`'s `Walk` = 0 stops them all (they stand in the game's pose); `WalkPeriod` is an adult's seconds per cycle (two steps). Both come from `look.unreal.walkers`.
+  - With the editor open, `python -m ue.live walkers Frostpunk_20260929_115750` adds or refreshes them (about 45 s) and touches nothing else.
+  - `python -m ue.walker_check Frostpunk_20260929_115750` must end with `9 walk, 2 keep their pose, 1 pair(s) walk through each other` (`mesh_326` and `mesh_636` cross; they don't avoid each other yet), with planted feet slipping about 1 cm/s.
 - **Close-ups:** these are dollied from the game camera. Unreal's close-ups are a little darker than Blender's (up to about 0.4 stops) because Lumen occludes sky light, which EEVEE doesn't. That is expected.
 
 ## 7. Where things are
@@ -182,8 +188,10 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 | `ue/blender_lut.py` | Blender bakes its own grade and AgX into the LUT that Unreal applies |
 | `ue/editor/` | Runs inside Unreal: master materials (`gtb_hlsl.py`, `gtb_materials.py`) and the level build (`gtb_ue.py`) |
 | `ue/pipeline.py` | Runs Unreal headless (commandlet, then Movie Render Queue) and writes the comparison sheets |
+| `gtb/characters.py` | People: each one's bones solved from its skinned draw, the walk cycle fitted to the walkers |
+| `ue/walkers.py`, `ue/walker_check.py` | Walking people for Unreal: loops through the streets (ray casts), the baked cycle and the two data textures, a numpy replay of `M_GTB_Walker`, and its checks ([WALKING_PEOPLE.md](WALKING_PEOPLE.md)) |
 | `ue/cloth_check.py` | Replays the banner flutter in numpy and reports banners that move into geometry |
-| `ue/live.py` | Pushes the banners, all material instances, the sprite column or the sprites into the open editor (`cloth` / `materials` / `plume` / `sprites`) |
+| `ue/live.py` | Pushes the banners, all material instances, the sprite column, the sprites or the walking people into the open editor (`cloth` / `materials` / `plume` / `sprites` / `walkers`) |
 | `ue/fluid_smoke.py` | Builds the generator's Niagara Fluids smoke in the open editor ([GENERATOR_SMOKE.md](GENERATOR_SMOKE.md)) |
 | `ue/remote.py` | Runs a Python file inside an open Unreal editor, for live tweaks (needs Python Remote Execution turned on) |
 | `profiles/frostpunk.json`, `profiles/looks/` | Game profile, night and day looks |
@@ -201,5 +209,6 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 - **No haze on the crater walls or over the ice, or `mesh_5273`, `mesh_5255` and `mesh_5268` sit in "Effects (hidden)" in the editor:** the level was built before the mist rules (2026-09-30). With the editor open, run `python -m ue.live sprites <capture>`: it re-imports those three meshes as sprites and moves all four to the mist look. The Content Browser then jumps to `SM_01646_mesh_5273_5273`; that's expected. Undo reverts it, and File → Save All keeps it. A fresh `gtb.py unreal` builds them directly.
 - **Unreal step fails:** read `captures/<name>/unreal/build.log`, then `build_engine.log`. For renders, read `render_stills_engine.log`.
 - **Unreal colours about a stop too bright or washed out:** the colour pass must stay before the tonemapper. See the Unreal section of `CLAUDE.md`.
+- **Nobody walks:** the export prints `[people]` lines; without them the profile has no `characters` rig, or the capture has no skin data and its rip is gone (`no skin data and the rip is gone`). A level built before 2026-10-01 has the people frozen: with the editor open, run `python -m ue.live walkers <capture>`. People that vanish mean `M_GTB_Walker` didn't compile (the live command prints its instruction counts). Feet that slide or walkers in walls: `python -m ue.walker_check <capture>`, and [WALKING_PEOPLE.md](WALKING_PEOPLE.md), "Check it". People that stand still while others walk are the crutch users and those with no room (see step 6), or `MI_Look_Walker`'s `Walk` is 0.
 - **No generator smoke after step 4b:** give it 60–90 s if the editor isn't in focus. If `GeneratorPlume` has no Niagara system (its Details show an empty Niagara System asset), its assets were never saved. `python -m ue.fluid_smoke <capture> --show fluid` rebuilds it, and so does the build command. Then check that the sky dome has no collision (the script sets its profile to `NoCollision`) and that the three plugins are enabled. See [GENERATOR_SMOKE.md](GENERATOR_SMOKE.md), Pitfalls.
 - **Anything else:** use the lessons list in `CLAUDE.md`. Fix things in code or the profile and re-run the step, never by hand in the `.blend` or the level.

@@ -18,7 +18,7 @@ from pathlib import Path
 
 import numpy as np
 
-from gtb import nr, textures
+from gtb import characters, nr, textures
 from gtb.scene_common import assign_slots, below_scene, decal_volume, overlay_layer, scene_floor
 from gtb.config import ROOT
 
@@ -717,6 +717,9 @@ def process(capture: Path):
             if col.shape[1] == 3:
                 col = np.hstack([col, np.ones((len(col), 1))])
             out["colors"] = col[rows].astype(np.float32)
+        # Skinned draws keep their bind pose and bone weights: gtb/characters.py
+        # solves each person's bones from them (Unreal walkers).
+        out.update(characters.skin_arrays(src, rows))
 
         sprite = None
         if b["cat"] == "sprite":

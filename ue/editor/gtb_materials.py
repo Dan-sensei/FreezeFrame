@@ -119,7 +119,8 @@ def _reset(mat, **props):
         mat.set_editor_property(k, v)
 
 
-def build_surface(mat, defaults, mpc, masked):
+def build_surface(mat, defaults, mpc, masked, vnormal=None):
+    """vnormal(g): replaces the vertex normal the snow reads (walkers turn it)."""
     _reset(mat, two_sided=True, shading_model=unreal.MaterialShadingModel.MSM_DEFAULT_LIT,
            blend_mode=unreal.BlendMode.BLEND_MASKED if masked else unreal.BlendMode.BLEND_OPAQUE,
            opacity_mask_clip_value=0.5)
@@ -128,7 +129,7 @@ def build_surface(mat, defaults, mpc, masked):
     inputs = {
         "UV": g.texcoord(0),
         "VColor": g.node(unreal.MaterialExpressionVertexColor),
-        "VNormal": g.node(unreal.MaterialExpressionVertexNormalWS),
+        "VNormal": vnormal(g) if vnormal else g.node(unreal.MaterialExpressionVertexNormalWS),
         "CamVec": g.node(unreal.MaterialExpressionCameraVectorWS),
         "WorldPos": g.node(unreal.MaterialExpressionWorldPosition),
         "AlbedoTex": g.texture("Albedo", col), "NormalTex": g.texture("Normal", lin),
@@ -167,7 +168,56 @@ def build_surface(mat, defaults, mpc, masked):
     g.out(c, "Emis", MP.MP_EMISSIVE_COLOR)
     if masked:
         g.out(c, "Alpha", MP.MP_OPACITY_MASK)
+    g.surface = c
     return g
+
+
+def build_walker(mat, defaults, mpc):
+    """Surface that walks (gtb_hlsl.WALKER_WPO, ue/walkers.py): skinned in the vertex
+    shader from the bone and path textures; its normals turned to the current pose."""
+    linear = unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR
+    q = {}
+
+    def vnormal(g):
+        wpo = g.custom(hlsl.WALKER_WPO, {
+            "I01": g.texcoord(1), "I23": g.texcoord(2), "W01": g.texcoord(3), "W23": g.texcoord(4),
+            "BXY": g.texcoord(5), "BZ": g.texcoord(6), "T": g.time(),
+            # Per actor (custom primitive data 0-7, see ue/walkers.py). "RGBA": a vector
+            # parameter's default output is RGB only.
+            "WA": (g.node(unreal.MaterialExpressionVectorParameter, parameter_name="WalkerA",
+                          use_custom_primitive_data=True, primitive_data_index=0), "RGBA"),
+            "WB": (g.node(unreal.MaterialExpressionVectorParameter, parameter_name="WalkerB",
+                          use_custom_primitive_data=True, primitive_data_index=4), "RGBA"),
+            "Bones": g.node(unreal.MaterialExpressionTextureObjectParameter, parameter_name="WalkerBones",
+                            group="Walkers", texture=defaults["linear"], sampler_type=linear),
+            "Paths": g.node(unreal.MaterialExpressionTextureObjectParameter, parameter_name="WalkerPaths",
+                            group="Walkers", texture=defaults["linear"], sampler_type=linear),
+            "BoneRange": g.scalar("BoneRange", 100.0, "Walkers"),
+            "PathRange": (g.vector("PathRange", (1000, 1000, 100, 8), "Walkers"), "RGBA"),
+            "Frames": g.scalar("Frames", 48.0, "Walkers"), "Samples": g.scalar("PathSamples", 128.0, "Walkers"),
+            "WalkPeriod": g.scalar("WalkPeriod", 1.1, "Look"), "Walk": g.scalar("Walk", 1.0, "Look"),
+            "ObjPos": g.node(unreal.MaterialExpressionObjectPositionWS),
+            "WorldPos": g.node(unreal.MaterialExpressionWorldPosition),
+        }, F3, {"QX": F3, "QZ": F3}, desc="GTB Walker")
+        q["wpo"] = wpo
+        for k in ("QX", "QZ"):           # vertex -> pixel shader
+            vi = g.node(unreal.MaterialExpressionVertexInterpolator)
+            if not MEL.connect_material_expressions(wpo, k, vi, ""):
+                raise RuntimeError(f"could not connect {k} to its vertex interpolator")
+            q[k] = vi
+        return g.custom(hlsl.WALKER_ROT, {"V": g.node(unreal.MaterialExpressionVertexNormalWS),
+                                          "QX": q["QX"], "QZ": q["QZ"]}, F3, desc="GTB Walker vertex normal")
+
+    g = build_surface(mat, defaults, mpc, False, vnormal)
+    mat.set_editor_property("tangent_space_normal", False)
+    tw = g.node(unreal.MaterialExpressionTransform,
+                transform_source_type=unreal.MaterialVectorCoordTransformSource.TRANSFORMSOURCE_TANGENT,
+                transform_type=unreal.MaterialVectorCoordTransform.TRANSFORM_WORLD)
+    if not MEL.connect_material_expressions(g.surface, "NormalTS", tw, ""):
+        raise RuntimeError("could not connect NormalTS to the tangent -> world transform")
+    n = g.custom(hlsl.WALKER_ROT, {"V": tw, "QX": q["QX"], "QZ": q["QZ"]}, F3, desc="GTB Walker normal")
+    g.out(n, "", MP.MP_NORMAL)
+    g.out(q["wpo"], "", MP.MP_WORLD_POSITION_OFFSET)
 
 
 def build_cloth(mat, defaults, mpc):
@@ -366,6 +416,7 @@ MASTERS = {
     "surface": ("M_GTB_Surface", lambda m, d, p: build_surface(m, d, p, False)),
     "surface_masked": ("M_GTB_SurfaceMasked", lambda m, d, p: build_surface(m, d, p, True)),
     "cloth": ("M_GTB_Cloth", build_cloth),
+    "walker": ("M_GTB_Walker", build_walker),
     "snowdrift": ("M_GTB_SnowDrift", build_snowdrift),
     "smoke": ("M_GTB_Smoke", build_smoke),
     "fire": ("M_GTB_Fire", build_fire),

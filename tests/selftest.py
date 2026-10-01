@@ -154,6 +154,65 @@ checks.update({
     and rock_slots["albedo"]["file"] == "a0.png" and bark_slots["albedo"]["file"] == "bark.png",
     "unreal: a faint particle layer with mist-sized cards is mist, snowflakes and steam aren't": mist_ok,
 })
+# People: a synthetic person on the Frostpunk rig (tubes along the bones, blended at the
+# joints), posed by known bone rotations and drawn through linear blend skinning at
+# 1.3x, mirrored to D3D like a rip's bind pose. The solver recovers its bones and scale,
+# the walk keeps a planted foot in place, and a loop closes on itself.
+from gtb import characters as ch  # noqa: E402
+from ue import walkers as walkers_mod  # noqa: E402
+_rig = ch.rig_from_profile(json.loads((ROOT / "profiles" / "frostpunk.json").read_text(encoding="utf-8")))
+_jt = {1: (0, 1.0, 0), 2: (0, 1.1, 0), 3: (0, 1.3, 0), 4: (0, 1.5, 0), 5: (0, 1.6, 0), 6: (0.05, 1.45, 0),
+       7: (0.2, 1.45, 0), 8: (0.32, 1.2, 0), 9: (0.42, 1.0, 0), 11: (0.46, 0.92, 0), 21: (0.1, 0.95, 0),
+       22: (0.1, 0.5, 0), 23: (0.1, 0.09, 0)}
+for _a, _b in _rig.spec["mirror"]:
+    _have, _miss = (_a, _b) if _a in _jt else (_b, _a)
+    _jt[_miss] = (-_jt[_have][0],) + tuple(_jt[_have][1:])
+_jt = {b: np.array(v, float) for b, v in _jt.items()}
+_tip = {5: np.array([0, 1.75, 0]), 11: _jt[11] + [0.03, -0.08, 0], 17: _jt[17] + [-0.03, -0.08, 0],
+        20: np.array([-0.1, 0.0, -0.18]), 23: np.array([0.1, 0.0, -0.18])}
+_pts, _idx, _w = [], [], []
+for _b in _rig.order:
+    _kids = [k for k, q in _rig.parent.items() if q == _b]
+    _end = _tip.get(_b, np.mean([_jt[k] for k in _kids], 0) if _kids else _jt[_b] + [0, -0.1, 0])
+    _ax = _end - _jt[_b]
+    if np.linalg.norm(_ax) < 0.05:                  # the pelvis: its children average out to itself
+        _ax = np.array([0.0, 0.1, 0.0])
+    _u = np.cross(_ax, [0.3, 0.2, 0.9]); _u /= np.linalg.norm(_u); _v = np.cross(_ax / np.linalg.norm(_ax), _u)
+    for _s in np.linspace(0, 1, 6):
+        for _k in range(6):
+            _pts.append(_jt[_b] + _ax * _s + 0.03 * (np.cos(_k) * _u + np.sin(_k) * _v))
+            _p = _rig.parent.get(_b, _b)
+            _blend = 0.5 if _s == 0 and _p != _b else 0.0
+            _idx.append([_b, _p, 0, 0]); _w.append([1 - _blend, _blend, 0, 0])
+_pts, _idx, _w = np.array(_pts), np.array(_idx), np.array(_w)
+_rng = np.random.default_rng(5)
+_pose = {b: _rng.normal(0, 0.25, 3) for b in _rig.order}
+_pose[1] = np.array([0.1, 0.4, 0.0])
+_fake = ch.Person.__new__(ch.Person)
+_fake.rig, _fake.nb, _fake.joints = _rig, 24, {b: _jt[b] * 1.3 for b in _rig.order}
+_R, _t = _fake.fk(_pose, ch.frame(np.array([1.0, 0, 0]), _rig), np.array([5.0, 2.0, 1.3]))
+_P = ch.lbs(_pts * 1.3, _idx, _w, _R, _t)
+_person = ch.Person("synthetic", {"skin_bind": (_pts * [1, 1, -1]).astype(np.float32), "skin_index": _idx,
+                                  "skin_weight": _w.astype(np.float32), "positions": _P}, _rig)
+_Rb, _tb, _stride, _hip, _ = walkers_mod.bake_cycle(_person, ch.default_walk(_rig), frames=48)
+_slip = []
+for _k in range(48):
+    _a, _b2 = _person.skin(_Rb[_k], _tb[_k]), _person.skin(_Rb[(_k + 1) % 48], _tb[(_k + 1) % 48])
+    _a[:, 0] += _stride * _k / 48
+    _b2[:, 0] += _stride * (_k + 1) / 48
+    _on = (_a[:, 2] < 0.01) & (_b2[:, 2] < 0.01)
+    if _on.any():
+        _slip.append(np.linalg.norm((_b2[_on] - _a[_on])[:, :2], axis=1).min())
+_lp, _seg = walkers_mod.loop_points(np.zeros(3), np.array([1.0, 0, 0]), 5.0, 3.0, np.array([0, 1.0, 0]))
+_xy, _yaw, _L = walkers_mod.resample(_lp, _seg, 64)
+checks.update({
+    "people: bones, joints and scale solved from a skinned mesh": _person.res.max() < 1e-3
+    and abs(_person.scale - 1.3) < 1e-3 and _person.upright()
+    and max(np.linalg.norm(_person.joints[b] - _jt[b] * 1.3) for b in (19, 22, 8, 14)) < 0.01,
+    "people: the walk keeps a planted foot in place": _stride > 0.5 and np.median(_slip) < 0.002,
+    "people: a walking loop closes (2 lanes, 2 half turns)": abs(_L - (16 + np.pi)) < 0.05
+    and abs(abs(_yaw[-1] - _yaw[0]) - 2 * np.pi) < 1e-6,
+})
 checks.update({
     "import: capture.json from the rip": imp_meta.get("game_exe") == "Frostpunk.exe"
     and imp_meta.get("resolution") == list(m["resolution"]),

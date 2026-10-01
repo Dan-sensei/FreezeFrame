@@ -351,6 +351,72 @@ off.z = dot(off.xy, off.xy) / (2.0 * max(d * len, 1.0)) * (1.0 - held);
 return off;
 """
 
+# Walking people (ue/walkers.py; mirrored in walkers.replay, keep in sync). Per vertex:
+# bone indices (UV1, UV2), weights (UV3, UV4), bind position in Unreal cm standing at
+# the origin facing +X (UV5, UV6.x). Per actor (custom primitive data 0-7): WA = bone
+# row, path row, phase at time 0, cycle time (x WalkPeriod); WB = stride (cm per
+# cycle), loop length (cm), start (cm along the loop), 1.
+# Bones: 3 texels per frame and bone, the rows of [R | t] (RGB = R, A = t / BoneRange,
+# both stored as (v + 1) / 2), from the bind position to the walking frame (X forward,
+# ground at z 0); frame `Frames` holds the captured pose's rotations. Paths: per walker
+# Samples + 1 points (x, y, z, yaw) along its loop, relative to the actor.
+# Outputs: the offset, and QX / QZ, the first and last columns of the rotation from the
+# captured pose to now (the mesh's normals and tangents are the captured ones).
+WALKER_WPO = r"""
+QX = float3(1.0, 0.0, 0.0);
+QZ = float3(0.0, 0.0, 1.0);
+float cycle = WA.w * WalkPeriod;
+if (cycle <= 0.0 || WB.w < 0.5 || Walk < 0.5)
+    return float3(0.0, 0.0, 0.0);
+float prog = T / cycle;
+float fk = frac(WA.z + prog) * Frames;
+float f0 = floor(fk);
+float al = fk - f0;
+float f1 = fmod(f0 + 1.0, Frames);
+float idx[4] = {I01.x, I01.y, I23.x, I23.y};
+float wt[4] = {W01.x, W01.y, W23.x, W23.y};
+float3 b = float3(BXY.x, BXY.y, BZ.x);
+float3 p = float3(0.0, 0.0, 0.0);
+float3x3 Rn = (float3x3)0;
+float3x3 Rc = (float3x3)0;
+[unroll] for (int i = 0; i < 4; i++)
+{
+    if (wt[i] > 0.0)
+    {
+        int row = (int)(WA.x + idx[i] + 0.5);
+        float4 m0 = lerp(Bones.Load(int3((int)f0 * 3 + 0, row, 0)), Bones.Load(int3((int)f1 * 3 + 0, row, 0)), al) * 2.0 - 1.0;
+        float4 m1 = lerp(Bones.Load(int3((int)f0 * 3 + 1, row, 0)), Bones.Load(int3((int)f1 * 3 + 1, row, 0)), al) * 2.0 - 1.0;
+        float4 m2 = lerp(Bones.Load(int3((int)f0 * 3 + 2, row, 0)), Bones.Load(int3((int)f1 * 3 + 2, row, 0)), al) * 2.0 - 1.0;
+        int fc = (int)Frames * 3;
+        float3 c0 = Bones.Load(int3(fc + 0, row, 0)).xyz * 2.0 - 1.0;
+        float3 c1 = Bones.Load(int3(fc + 1, row, 0)).xyz * 2.0 - 1.0;
+        float3 c2 = Bones.Load(int3(fc + 2, row, 0)).xyz * 2.0 - 1.0;
+        p += wt[i] * (float3(dot(m0.xyz, b), dot(m1.xyz, b), dot(m2.xyz, b)) + BoneRange * float3(m0.w, m1.w, m2.w));
+        Rn += wt[i] * float3x3(m0.xyz, m1.xyz, m2.xyz);
+        Rc += wt[i] * float3x3(c0, c1, c2);
+    }
+}
+float s = frac((WB.z + prog * WB.x) / max(WB.y, 1.0)) * Samples;
+float s0 = floor(s);
+int prow = (int)(WA.y + 0.5);
+float4 q = (lerp(Paths.Load(int3((int)s0, prow, 0)), Paths.Load(int3((int)s0 + 1, prow, 0)), s - s0) * 2.0 - 1.0) * PathRange;
+float c = cos(q.w);
+float sn = sin(q.w);
+float3x3 Y = float3x3(c, -sn, 0.0, sn, c, 0.0, 0.0, 0.0, 1.0);
+float3x3 Q = mul(mul(Y, Rn), transpose(Rc));
+QX = float3(Q[0][0], Q[1][0], Q[2][0]);
+QZ = float3(Q[0][2], Q[1][2], Q[2][2]);
+return ObjPos + q.xyz + mul(Y, p) - WorldPos;
+"""
+
+# A world-space vector turned from the captured pose to now (columns QX, QY = QZ x QX, QZ).
+WALKER_ROT = r"""
+float3 qx = normalize(QX);
+float3 qz = normalize(QZ);
+float3 qy = cross(qz, qx);
+return normalize(qx * V.x + qy * V.y + qz * V.z);
+"""
+
 # Shading of the smoke column, after the game's burning generator seen from below:
 # many billows, each lit by the fire at the vent (Base) on the side facing it and
 # charcoal elsewhere, with the youngest puffs being the flames themselves.

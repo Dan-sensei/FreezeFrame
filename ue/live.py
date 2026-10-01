@@ -7,6 +7,10 @@ the editor closed. Changes go into one undo transaction and stay unsaved.
     python -m ue.live plume <capture>       the smoke column: M_GTB_Plume and MI_Look_Plume from look.json
     python -m ue.live sprites <capture>     sprites (smoke, fire, mist): meshes the editor has without
                                             billboard data (e.g. once hidden effects), then `materials`
+    python -m ue.live walkers <capture>     walking people: M_GTB_Walker, MI_Look_Walker, the bone and path
+                                            textures, the walkers' meshes (with bone UVs) and MI_Walk_*
+                                            instances, each one's loop (custom primitive data); nothing
+                                            else in the level changes
 
 All re-export the capture's Unreal plan first, so the editor gets what the
 code produces now. The capture's level must be the one open in the editor.
@@ -24,7 +28,7 @@ sys.path.insert(0, str(ROOT))
 from gtb import config  # noqa: E402
 from gtb.scene_common import load_look  # noqa: E402
 from ue.export import export  # noqa: E402
-from ue.look import cloth_params, plume_params  # noqa: E402
+from ue.look import cloth_params, plume_params, walker_params  # noqa: E402
 from ue.remote import run  # noqa: E402
 
 CLOTH = r'''
@@ -185,6 +189,133 @@ print(f"GTB live: {len(D['sprites'])} sprite(s), {len(todo)} re-imported with bi
       + (f"; STILL WITHOUT IT: {bad}" if bad else ""))
 '''
 
+# Walking people (ue/walkers.py). The master is rebuilt and checked like the cloth's; the
+# meshes come back from their own .glb with the 6 extra UV channels (bone indices and
+# weights, bind position); MI_Look_Walker gets the look's surface values like
+# MI_Look_Surface, plus the textures; the MI_Walk_* instances (the base material's values);
+# then each walker actor its instance, its loop and the People folder. Only walker assets
+# and actors are touched (no full `materials` reset).
+WALKERS = r'''
+import os, sys, importlib, json, unreal
+D = json.loads(DATA)
+sys.path.insert(0, D["editor_dir"])
+import gtb_hlsl, gtb_materials
+importlib.reload(gtb_hlsl); importlib.reload(gtb_materials)
+MEL, EAL = unreal.MaterialEditingLibrary, unreal.EditorAssetLibrary
+SMES = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+SHARED, CAP = "/Game/GTB/Shared", D["content"]
+at = unreal.AssetToolsHelpers.get_asset_tools()
+''' + MESH_OPTIONS + r'''
+def data_texture(src, name):                         # as gtb_ue.configure_texture(kind="data")
+    t = unreal.AssetImportTask()
+    t.set_editor_properties({"filename": src, "destination_path": f"{CAP}/Textures", "destination_name": name,
+                             "automated": True, "save": False, "replace_existing": True})
+    at.import_asset_tasks([t])
+    tex = EAL.load_asset(f"{CAP}/Textures/{name}")
+    TC = unreal.TextureCompressionSettings
+    tex.set_editor_properties({"srgb": False, "compression_settings": getattr(TC, "TC_HDR_F32", TC.TC_HDR),
+                               "mip_gen_settings": unreal.TextureMipGenSettings.TMGS_NO_MIPMAPS,
+                               "filter": unreal.TextureFilter.TF_NEAREST,
+                               "address_x": unreal.TextureAddress.TA_CLAMP, "address_y": unreal.TextureAddress.TA_CLAMP,
+                               "never_stream": True, "lod_group": unreal.TextureGroup.TEXTUREGROUP_COLOR_LOOKUP_TABLE})
+    return tex
+def mesh(asset):
+    return EAL.load_asset(f"{CAP}/Meshes/{asset}")
+with unreal.ScopedEditorTransaction("GTB: walkers"):
+    defaults = {k: unreal.load_asset(f"{SHARED}/T_GTB_{n}") for k, n in
+                (("color", "DefaultColor"), ("linear", "DefaultLinear"), ("lut", "DefaultLut"))}
+    path = f"{SHARED}/M_GTB_Walker"
+    mat = EAL.load_asset(path) if EAL.does_asset_exist(path) else \
+        at.create_asset("M_GTB_Walker", SHARED, unreal.Material, unreal.MaterialFactoryNew())
+    gtb_materials.build_walker(mat, defaults, unreal.load_asset(f"{SHARED}/MPC_GTB_Time"))
+    MEL.layout_material_expressions(mat)
+    MEL.recompile_material(mat)
+    EAL.set_metadata_tag(mat, "gtb_version", gtb_materials.MASTER_VERSION)
+    st = MEL.get_statistics(mat)
+    ok = st.num_vertex_shader_instructions > 0 and st.num_pixel_shader_instructions > 0
+    print("GTB live: walker master built, " + (f"compiles ({st.num_vertex_shader_instructions} VS / "
+          f"{st.num_pixel_shader_instructions} PS instructions)" if ok else
+          "SHADER COMPILE FAILED: the walkers will vanish; see the editor's Output Log"))
+    W = D["walkers"]
+    bones = data_texture(W["bones_png"], "T_GTB_WalkerBones")
+    paths = data_texture(W["paths_png"], "T_GTB_WalkerPaths")
+    lp = f"{CAP}/Materials/MI_Look_Walker"
+    look = EAL.load_asset(lp) if EAL.does_asset_exist(lp) else at.create_asset(
+        "MI_Look_Walker", f"{CAP}/Materials", unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
+    look.modify()
+    MEL.set_material_instance_parent(look, mat)
+    src = unreal.load_asset(f"{CAP}/Materials/MI_Look_Surface")       # the look's surface values
+    for p in src.get_editor_property("scalar_parameter_values"):
+        MEL.set_material_instance_scalar_parameter_value(look, p.parameter_info.name, p.parameter_value)
+    for p in src.get_editor_property("vector_parameter_values"):
+        MEL.set_material_instance_vector_parameter_value(look, p.parameter_info.name, p.parameter_value)
+    for k, v in dict(D["params"], BoneRange=W["bone_range"], Frames=W["frames"], PathSamples=W["path_samples"]).items():
+        MEL.set_material_instance_scalar_parameter_value(look, k, float(v))
+    MEL.set_material_instance_vector_parameter_value(look, "PathRange", unreal.LinearColor(*W["path_range"]))
+    MEL.set_material_instance_texture_parameter_value(look, "WalkerBones", bones)
+    MEL.set_material_instance_texture_parameter_value(look, "WalkerPaths", paths)
+    def texture(spec):                               # as MATERIALS.texture
+        name = "T_" + os.path.splitext(spec["file"])[0]
+        tp = f"{CAP}/Textures/{name}"
+        if not EAL.does_asset_exist(tp):
+            t = unreal.AssetImportTask()
+            t.set_editor_properties({"filename": os.path.join(D["textures_dir"], spec["file"]),
+                                     "destination_path": f"{CAP}/Textures", "destination_name": name,
+                                     "automated": True, "save": False, "replace_existing": True})
+            at.import_asset_tasks([t])
+        return EAL.load_asset(tp)
+    mis = {}
+    for m in D["mis"]:                               # MI_Walk_*: the base material's values on MI_Look_Walker
+        mp = f"{CAP}/Materials/{m['name']}"
+        mi = EAL.load_asset(mp) if EAL.does_asset_exist(mp) else at.create_asset(
+            m["name"], f"{CAP}/Materials", unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
+        mi.modify()
+        MEL.set_material_instance_parent(mi, look)
+        MEL.clear_all_material_instance_parameters(mi)
+        for k, v in (m.get("scalars") or {}).items():
+            MEL.set_material_instance_scalar_parameter_value(mi, k, float(v))
+        for k, v in (m.get("vectors") or {}).items():
+            MEL.set_material_instance_vector_parameter_value(mi, k, unreal.LinearColor(*(list(v) + [0.0] * 4)[:4]))
+        for k, spec in (m.get("textures") or {}).items():
+            MEL.set_material_instance_texture_parameter_value(mi, k, texture(spec))
+        mis[m["name"]] = mi
+    todo = [n for n, (asset, glb) in D["meshes"].items()
+            if mesh(asset) is None or SMES.get_num_uv_channels(mesh(asset), 0) < 7]
+    tasks = []
+    for n in todo:
+        t = unreal.AssetImportTask()
+        t.set_editor_properties({"filename": D["meshes"][n][1], "destination_path": f"{CAP}/Meshes",
+                                 "automated": True, "save": False, "replace_existing": True, "options": mesh_options()})
+        tasks.append(t)
+    if tasks:
+        at.import_asset_tasks(tasks)
+    bad = []
+    for n, (asset, glb) in D["meshes"].items():
+        sm = mesh(asset)
+        if sm is None or SMES.get_num_uv_channels(sm, 0) < 7:
+            bad.append(n)
+            continue
+        sm.modify()
+        e = D["extent"][n]
+        for k in ("positive_bounds_extension", "negative_bounds_extension"):
+            sm.set_editor_property(k, unreal.Vector(e, e, e))
+    n_set = 0
+    for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors():
+        v = D["cpd"].get(a.get_actor_label())
+        if v and isinstance(a, unreal.StaticMeshActor):
+            c = a.static_mesh_component
+            a.modify()
+            c.modify()
+            c.set_material(0, mis[D["actor_mi"][a.get_actor_label()]])
+            for i in range(0, 8, 4):
+                c.set_default_custom_primitive_data_vector4(i, unreal.Vector4(*v[i:i + 4]))
+            a.set_folder_path("People")
+            a.tags = ["gtb_people"]
+            n_set += 1
+print(f"GTB live: {len(D['meshes'])} walker mesh(es), {len(todo)} re-imported with bone data, {len(mis)} MI_Walk_* "
+      f"instance(s), loops on {n_set} actor(s)" + (f"; STILL WITHOUT BONE DATA: {bad}" if bad else ""))
+'''
+
 MATERIALS = r'''
 import os, json, unreal
 D = json.loads(DATA)
@@ -268,13 +399,13 @@ def _send(template, data):
 
 
 def main():
-    if len(sys.argv) != 3 or sys.argv[1] not in ("cloth", "materials", "plume", "sprites"):
+    if len(sys.argv) != 3 or sys.argv[1] not in ("cloth", "materials", "plume", "sprites", "walkers"):
         sys.exit(__doc__)
     cfg = config.load()
     cap = Path(sys.argv[2])
     if not cap.exists():
         cap = Path(cfg.get("captures_dir") or ROOT / "captures") / sys.argv[2]
-    plan = export(cap, solo=sys.argv[1] == "sprites")
+    plan = export(cap, solo=sys.argv[1] in ("sprites", "walkers"))
     base = {"content": f"/Game/GTB/{cap.name}", "editor_dir": str(ROOT / "ue" / "editor"),
             "textures_dir": plan["textures_dir"]}
     if sys.argv[1] == "plume":
@@ -284,9 +415,21 @@ def main():
                                      "Drift", "SmokeColor", "GlowColor", "ShadowColor")}
         print(_send(PLUME, dict(base, params=params, glb=(plan.get("plume") or {}).get("glb"))), end="")
         return
+    walkers = [a for a in plan["actors"] if a.get("walker")]
     if sys.argv[1] == "sprites":
-        mesh = {a["name"]: a["mesh"] for a in plan["actors"]}
-        print(_send(SPRITES, dict(base, sprites={n: (mesh[n], g) for n, g in plan["solo_glbs"].items()})), end="")
+        mesh = {a["name"]: a["mesh"] for a in plan["actors"] if a.get("folder") == "Particles"}
+        print(_send(SPRITES, dict(base, sprites={n: (mesh[n], g) for n, g in plan["solo_glbs"].items()
+                                                 if n in mesh})), end="")
+    if sys.argv[1] == "walkers":
+        if not walkers:
+            sys.exit("no walkers in this capture (no upright people, or no skin data: see the [people] lines)")
+        print(_send(WALKERS, dict(base, walkers=plan["walkers"], params=walker_params(load_look(cap / "look.json")),
+                                  meshes={a["name"]: (a["mesh"], plan["solo_glbs"][a["name"]]) for a in walkers},
+                                  extent={a["name"]: a["walker_extent_cm"] for a in walkers},
+                                  cpd={a["name"]: a["walker"] for a in walkers},
+                                  actor_mi={a["name"]: a["material"] for a in walkers},
+                                  mis=[m for m in plan["materials"] if m["parent"] == "walker"])), end="")
+        return
     if sys.argv[1] in ("materials", "sprites"):
         print(_send(MATERIALS, dict(base, textures=plan["textures"], materials=plan["materials"],
                                     actors={a["name"]: (a["material"], bool(a.get("hidden")), a.get("folder", "Geometry"))

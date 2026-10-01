@@ -21,6 +21,9 @@ Keys under look["unreal"] only affect Unreal; Blender ignores them:
   cloth            banners flutter in the snow's wind: {ripple, sway (fractions of the cloth's
                    length, at 2.5 m/s wind), wavelength (fraction of the length; below ~0.6
                    the game's 9-row banners zigzag), speed (ripples per second)}
+  walkers          the people the rip caught upright walk loops (ue/walkers.py, M_GTB_Walker):
+                   {enabled, period (seconds per walk cycle, two steps, of a typical adult;
+                   children step faster, by the square root of their hip height)}
   mist             the game's ground-mist cards (smoke sprites >= 40 m wide, MI_Look_Mist): {opacity,
                    soft_fade (m: fade out this close to the geometry behind, so the cards never cut
                    a line through buildings), near_fade (m from the camera), loop_seconds (editor loop)}
@@ -52,6 +55,9 @@ UNREAL_DEFAULTS = {"exposure_offset": 0.0, "bloom_intensity": None, "bloom_thres
                              "detail": 1.0, "shadow": [0.13, 0.11, 0.095], "opacity": 1.0, "puff_size": 1.6,
                              "fire_reach": 25.0, "flame": 5.0, "flame_height": 0.16, "spread": 1.0},
                    "cloth": {"ripple": 0.03, "sway": 0.08, "wavelength": 0.75, "speed": 0.5},
+                   # Frostpunk's adults step about 2.2 m per cycle (their world is 1.3x life size):
+                   # 1.1 s makes 2 m/s, a brisk walk in the cold.
+                   "walkers": {"enabled": True, "period": 1.1},
                    # The game's ground mist (tuned by eye in the editor, 2026-09-29).
                    "mist": {"opacity": 1.0, "soft_fade": 10.0, "near_fade": 20.0, "loop_seconds": 30.0},
                    # Generator plume (Niagara Fluids fire template, smoke-heavy source). Tuned by eye
@@ -100,7 +106,7 @@ def rl(v, nd=5):
 
 def ue_look(look, plan, lut_path):
     u = dict(UNREAL_DEFAULTS, **(look.get("unreal") or {}))
-    for k in ("plume", "cloth", "mist"):
+    for k in ("plume", "cloth", "mist", "walkers"):
         u[k] = dict(UNREAL_DEFAULTS[k], **((look.get("unreal") or {}).get(k) or {}))
     s = look["sun"]
     az, el = math.radians(s["azimuth"]), math.radians(s["elevation"])
@@ -164,12 +170,19 @@ def ue_look(look, plan, lut_path):
         "snow": _snow(snow, plan),
         "plume": _plume(look, u["plume"], plan),
         "cloth": cloth_params(look),
+        "walkers": walker_params(look),
         "render": {"preview_scale": r["preview_scale"], "resolution": plan["camera"]["resolution"],
                    "warmup_frames": u["warmup_frames"], "temporal_samples": u["temporal_samples"],
                    "anim_frames": u["anim_frames"], "fps": u["fps"], "cvars": u["cvars"]},
         "smoke_volumes": look["smoke"]["enabled"],
     }
     return out
+
+
+def walker_params(look):
+    """M_GTB_Walker's look parameters (look.unreal.walkers over UNREAL_DEFAULTS)."""
+    w = dict(UNREAL_DEFAULTS["walkers"], **((look.get("unreal") or {}).get("walkers") or {}))
+    return {"Walk": 1.0 if w["enabled"] else 0.0, "WalkPeriod": float(w["period"])}
 
 
 def cloth_params(look):

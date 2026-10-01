@@ -23,6 +23,7 @@ from gtb.process import sprite_attributes  # noqa: E402
 from gtb.scene_common import (assign_slots, below_scene, decal_volume, overlay_layer, packed_channels,  # noqa: E402
                                scene_floor, srgb_to_linear)
 from ue.gltf import GlbWriter, blender_to_gltf  # noqa: E402
+from ue import walkers as walker_mod  # noqa: E402
 
 CM = 100.0               # Blender metres -> Unreal centimetres
 CHUNK_TRIANGLES = 400_000
@@ -518,8 +519,9 @@ def write_plume(path: Path, frames, count=320, seed=7):
 # --------------------------------------------------------------------------- main
 
 def export(capture: Path, solo=False):
-    """solo: also write every sprite to its own .glb (meshes/solo/<asset>.glb, listed
-    in plan["solo_glbs"]), so `ue.live sprites` can re-import one without its chunk."""
+    """solo: also write every sprite and walker to its own .glb (meshes/solo/<asset>.glb,
+    listed in plan["solo_glbs"]), so `ue.live sprites|walkers` can re-import one without
+    its chunk."""
     capture = Path(capture)
     manifest = json.loads((capture / "manifest.json").read_text(encoding="utf-8"))
     profile = manifest.get("profile", {})
@@ -541,7 +543,7 @@ def export(capture: Path, solo=False):
     surfaces_for_ray = []
     solids, cloth_actors = [], []       # cloth: how far each banner may move (see cloth_room)
     sprite_frames_by_atlas = {}
-    counts = {"surface": 0, "cloth": 0, "effect": 0, "sprite": 0, "snowdrift": 0}
+    counts = {"surface": 0, "cloth": 0, "walker": 0, "effect": 0, "sprite": 0, "snowdrift": 0}
 
     def use_tex(spec):
         prev = used_textures.get(spec["file"])
@@ -564,6 +566,11 @@ def export(capture: Path, solo=False):
                 if decal_volume(p, d["indices"].reshape(-1, 3), roles) or                         overlay_layer(assign_slots(m.get("textures", {}), textures, profile)):
                     decals.add(m["name"])
     below = {surf[k] for k in below_scene(tops)} | decals
+
+    # People caught upright walk (ue/walkers.py): extra UVs, M_GTB_Walker, a loop each.
+    walker_list, walk, _ = walker_mod.find_walkers(capture, manifest)
+    walking = {p.name: p for p in walker_list if p.name not in below}
+    walker_actors, walker_mats = {}, set()
 
     for i, m in enumerate(manifest["meshes"]):
         data = dict(np.load(capture / m["file"]))
@@ -651,7 +658,7 @@ def export(capture: Path, solo=False):
                     mat = surface_material(slots, profile, has_uv)
                     if flutter:
                         mat["parent"] = "cloth"
-                    mat["name"] = f"MI_M{len(materials):03d}"
+                    mat["name"] = f"MI_M{len(materials) - len(walker_mats):03d}"
                     for spec in mat["textures"].values():
                         use_tex(spec)
                     materials[key] = mat
@@ -659,12 +666,26 @@ def export(capture: Path, solo=False):
                     kw["colors"] = data["colors"]
                 is_surface = (m.get("depth_write", True) and m.get("category", "surface") == "surface"
                               and m["name"] not in below)
+                person = walking.get(m["name"]) if is_surface else None
+                if person is not None:
+                    # Its own instance of the base material, named after it: a new MI_M###
+                    # would renumber every material after it.
+                    base = materials[key]
+                    key += "|walker"
+                    if key not in materials:
+                        materials[key] = dict(base, parent="walker", name="MI_Walk_" + base["name"][3:])
+                        walker_mats.add(key)
+                    uv_list += walker_mod.vertex_uvs(person)
                 if is_surface:
                     actor["folder"] = "Geometry"
                     counts["surface"] += 1
                     counts["cloth"] += flutter
                     surfaces_for_ray.append((pos_b, tris))
-                    if flutter:     # banners come as front/back twins that move together
+                    if person is not None:          # moves: not an obstacle for the others
+                        actor["folder"] = "People"
+                        walker_actors[m["name"]] = actor
+                        counts["walker"] += 1
+                    elif flutter:     # banners come as front/back twins that move together
                         cloth_actors.append((actor, pos_b, tris))
                     else:
                         solids.append((pos_b, tris))
@@ -674,7 +695,7 @@ def export(capture: Path, solo=False):
         kw["uvs"] = uv_list
         actor["material"] = materials[key]["name"]
         actor["glb"] = chunks.add(name, len(tris), **kw)
-        if solo and actor.get("folder") == "Particles":
+        if solo and actor.get("folder") in ("Particles", "People"):
             w = GlbWriter()
             w.add_mesh(name, **kw)
             w.save(mesh_dir / "solo" / f"{name}.glb")    # single-mesh file: the asset is named after it
@@ -686,6 +707,13 @@ def export(capture: Path, solo=False):
     # then the 8 direction budgets (cm per unit motion weight, see cloth_room).
     # Banners hung on walls and in frames must not flutter into them.
     soup = TriSoup(solids)
+    walkers_info = None
+    if walker_actors:
+        per_actor, walkers_info = walker_mod.plan(capture, manifest, [walking[n] for n in walker_actors], walk, soup,
+                                                  walker_actors)
+        for n, v in per_actor.items():
+            walker_actors[n]["walker"] = v["walker"]           # custom primitive data 0-7
+            walker_actors[n]["walker_extent_cm"] = v["extent_cm"]   # mesh bounds extension
     for actor, pos_b, tris in cloth_actors:
         n, budgets, held, sides = cloth_room(pos_b, tris, soup)
         nu = dir_to_ue([n[0], n[1], 0.0])
@@ -746,6 +774,7 @@ def export(capture: Path, solo=False):
         # Blender-space snow box, kept for the look mapping (box_scale is a look setting).
         "snow_box_blender": box,
         "plume": plume,
+        "walkers": walkers_info,
         "counts": counts,
     }
     if solo:

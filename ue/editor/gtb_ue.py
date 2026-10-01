@@ -106,6 +106,14 @@ def configure_texture(tex, kind):
                  "lod_group": unreal.TextureGroup.TEXTUREGROUP_COLOR_LOOKUP_TABLE, "never_stream": True}
     elif kind == "cube":
         props = {"srgb": False, "compression_settings": TC.TC_HDR}
+    elif kind == "data":
+        # Walker bones and paths (ue/walkers.py): 16-bit values read texel by texel.
+        # 32-bit float keeps all 16 bits (half floats would round the paths to 2 cm).
+        props = {"srgb": False, "compression_settings": getattr(TC, "TC_HDR_F32", TC.TC_HDR),
+                 "mip_gen_settings": unreal.TextureMipGenSettings.TMGS_NO_MIPMAPS,
+                 "filter": unreal.TextureFilter.TF_NEAREST, "address_x": unreal.TextureAddress.TA_CLAMP,
+                 "address_y": unreal.TextureAddress.TA_CLAMP, "never_stream": True,
+                 "lod_group": unreal.TextureGroup.TEXTUREGROUP_COLOR_LOOKUP_TABLE}
     else:
         props = {"srgb": kind == "albedo", "compression_settings": TC.TC_BC7}
     try:
@@ -195,8 +203,8 @@ def build_materials(plan, cap, masters, textures):
     and the per-material instances as its children."""
     mdir = f"{cap}/Materials"
     look_mis = {}
-    for key in ("surface", "surface_masked", "cloth", "snowdrift", "smoke", "mist", "fire", "plume", "snowfall", "sky",
-                "tonemap"):
+    for key in ("surface", "surface_masked", "cloth", "walker", "snowdrift", "smoke", "mist", "fire", "plume",
+                "snowfall", "sky", "tonemap"):
         name = {"snowfall": "MI_Snowfall", "sky": "MI_Sky", "tonemap": "MI_Tonemap"}.get(
             key, "MI_Look_" + "".join(w.title() for w in key.split("_")))
         look_mis[key] = material_instance(name, mdir, masters["smoke" if key == "mist" else key])   # mist: smoke master
@@ -309,6 +317,10 @@ def build_level(plan, cap_name, meshes, mis, look_mis, snow_mesh, defaults):
             v = act["cloth"]
             for i in range(0, 12, 4):
                 c.set_default_custom_primitive_data_vector4(i, unreal.Vector4(*v[i:i + 4]))
+        if act.get("walker"):       # M_GTB_Walker: rows, phase, cycle, stride, loop, start (ue/walkers.py)
+            v = act["walker"]
+            for i in range(0, 8, 4):
+                c.set_default_custom_primitive_data_vector4(i, unreal.Vector4(*v[i:i + 4]))
         if not act["cast_shadow"]:
             c.set_cast_shadow(False)
         if act["hidden"]:
@@ -367,8 +379,9 @@ def apply_look(look, plan, cap, look_mis, defaults):
 
     # Materials (GTB_Params in Blender).
     s = look["surface"]
-    for key in ("surface", "surface_masked", "cloth"):
+    for key in ("surface", "surface_masked", "cloth", "walker"):
         set_params(look_mis[key], s, {"GroundColor": look["ground_color"]})
+    set_params(look_mis["walker"], look["walkers"])
     cl = look["cloth"]
     set_params(look_mis["cloth"], {k: cl[k] for k in ("Ripple", "Sway", "WaveLength", "FlutterSpeed")},
                {"Wind": cl["Wind"]})
@@ -672,6 +685,10 @@ def main():
                 sm = meshes[act["mesh"]]
                 setp(sm, "positive_bounds_extension", unreal.Vector(2000, 2000, 5000))
                 setp(sm, "negative_bounds_extension", unreal.Vector(2000, 2000, 2000))
+            if act.get("walker_extent_cm") and act["mesh"] in meshes:   # the whole loop it walks
+                e = act["walker_extent_cm"]
+                for k in ("positive_bounds_extension", "negative_bounds_extension"):
+                    setp(meshes[act["mesh"]], k, unreal.Vector(e, e, e))
         snow_path = f"{SHARED}/SM_Snowfall"   # single-mesh file: asset named after it
         if not EAL.does_asset_exist(snow_path):
             import_files([(plan["snowfall_glb"], None)], SHARED, opts)
@@ -682,6 +699,13 @@ def main():
         setp(snow_mesh, "negative_bounds_extension", unreal.Vector(1e6, 1e6, 1e6))
         EAL.save_loaded_asset(snow_mesh)
         look_mis, mis = build_materials(plan, cap, masters, textures)
+        wk = plan.get("walkers")
+        if wk:
+            set_params(look_mis["walker"], {"BoneRange": wk["bone_range"], "Frames": wk["frames"],
+                                            "PathSamples": wk["path_samples"]}, {"PathRange": wk["path_range"]},
+                       {"WalkerBones": import_texture(wk["bones_png"], tdir, "T_GTB_WalkerBones", "data"),
+                        "WalkerPaths": import_texture(wk["paths_png"], tdir, "T_GTB_WalkerPaths", "data")})
+            log(f"walkers: {wk['count']}")
         if plan.get("plume"):
             import_files([(plan["plume"]["glb"], None)], mdir, opts)          # asset SM_Plume
             plume_mesh = EAL.load_asset(f"{mdir}/SM_Plume")
