@@ -203,6 +203,53 @@ for _k in range(48):
     _on = (_a[:, 2] < 0.01) & (_b2[:, 2] < 0.01)
     if _on.any():
         _slip.append(np.linalg.norm((_b2[_on] - _a[_on])[:, :2], axis=1).min())
+# Clips (gtb/clips.py): a Mixamo-style skeleton on the same joints, at rest in a T-pose and
+# facing -y like a Mixamo FBX in Blender, crawling 1 m forward per loop of 8 frames with its
+# left arm swinging. Retargeted onto the person (who binds in an A-pose), the upper arm
+# points where Mixamo's does, the stride is the travel, and the body stays on the ground.
+from gtb import clips as clips_mod  # noqa: E402
+_H = ch.frame(np.array([1.0, 0, 0]), _rig)
+_M = np.array([[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])      # walking frame -> Mixamo in Blender
+_mx = {v: k for k, v in clips_mod.MIXAMO.items()}
+_mn = ["Hips", "Spine", "Spine2", "Neck", "Head"] + [f"{s}{b}" for s in ("Left", "Right") for b in (
+    "Shoulder", "Arm", "ForeArm", "Hand", "HandMiddle1", "UpLeg", "Leg", "Foot")]
+_rest = {n: _H @ _person.joints[_rig.bone[_mx[n]]] for n in _mn}
+for _s, _sg in (("Left", 1.0), ("Right", -1.0)):                         # arms out to the sides
+    _sh = _rest[f"{_s}Arm"]
+    for _k, _n in enumerate(("ForeArm", "Hand", "HandMiddle1")):
+        _rest[f"{_s}{_n}"] = _sh + [0.0, _sg * 0.3 * (_k + 1), 0.0]
+_par = {"Spine": "Hips", "Spine2": "Spine", "Neck": "Spine2", "Head": "Neck"}
+for _s in ("Left", "Right"):
+    _par.update({f"{_s}Shoulder": "Spine2", f"{_s}Arm": f"{_s}Shoulder", f"{_s}ForeArm": f"{_s}Arm",
+                 f"{_s}Hand": f"{_s}ForeArm", f"{_s}HandMiddle1": f"{_s}Hand", f"{_s}UpLeg": "Hips",
+                 f"{_s}Leg": f"{_s}UpLeg", f"{_s}Foot": f"{_s}Leg"})
+_heads, _rots = [], []
+for _f in range(9):                                                     # frame 8 repeats frame 0, 1 m on
+    _Q = {n: np.eye(3) for n in _mn}
+    _Q["LeftArm"] = ch.rodrigues(np.array([0.6 + 0.4 * np.sin(np.pi * _f / 4), 0.0, 0.0]))
+    _hd = {"Hips": _rest["Hips"] + [_f / 8.0, 0.0, 0.0]}
+    for _n in _mn[1:]:
+        _p = _par[_n]
+        _Q[_n] = _Q[_p] @ _Q[_n] if _n != "LeftArm" else _Q[_n]
+        _hd[_n] = _hd[_p] + _Q[_p] @ (_rest[_n] - _rest[_p])
+    _heads.append([_M @ _hd[n] for n in _mn])
+    _rots.append([_M @ _Q[n] @ _M.T for n in _mn])
+_clip = clips_mod.Clip("test", {"names": np.array(["mixamorig:" + n for n in _mn]), "fps": 8.0,
+                                "parents": np.array([_mn.index(_par[n]) if n in _par else -1 for n in _mn]),
+                                "rest_head": np.array([_M @ _rest[n] for n in _mn]),
+                                "rest_rot": np.tile(np.eye(3), (len(_mn), 1, 1)),
+                                "head": np.array(_heads), "rot": np.array(_rots)})
+_Rc, _tc, _cstride, _csecs, _ = clips_mod.retarget(_person, _clip, 16)
+_k = clips_mod.hip_height(_person, _H) / (_rest["Hips"][2] - min(v[2] for v in _rest.values()))
+_arm_err = []
+for _f in range(0, 16, 2):
+    _Qa, _ = _clip.at(_f / 16 * 8)
+    _ia = _clip.i["LeftArm"]
+    _src = _Qa[_ia] @ _clip.rest_rot[_ia].T @ np.array([0.0, 1.0, 0.0])     # its turn from rest, on its rest direction
+    _ua, _fa = _rig.bone["upperarm_l"], _rig.bone["forearm_l"]
+    _dst = _Rc[_f][_ua] @ (_person.joints[_fa] - _person.joints[_ua])
+    _arm_err.append(np.degrees(np.arccos(np.clip(_src @ _dst / np.linalg.norm(_dst), -1, 1))))
+_clow = [_person.skin(_Rc[_f], _tc[_f])[:, 2].min() for _f in range(16)]
 _lp, _seg = walkers_mod.loop_points(np.zeros(3), np.array([1.0, 0, 0]), 5.0, 3.0, np.array([0, 1.0, 0]))
 _xy, _yaw, _L = walkers_mod.resample(_lp, _seg, 64)
 # Routes (ue/routes.py): ground, a 10 m building and a road strip beside it. A person on the
@@ -231,6 +278,9 @@ checks.update({
     "people: the walk keeps a planted foot in place": _stride > 0.5 and np.median(_slip) < 0.002,
     "people: a walking loop closes (2 lanes, 2 half turns)": abs(_L - (16 + np.pi)) < 0.05
     and abs(abs(_yaw[-1] - _yaw[0]) - 2 * np.pi) < 1e-6,
+    "people: a Mixamo clip retargets (T-pose rest onto an A-pose, stride, on the ground)":
+    _clip.loop and _clip.frames == 8 and abs(_csecs - 1.0) < 1e-9 and max(_arm_err) < 1.0
+    and abs(_cstride - _k) < 1e-6 and max(abs(v) for v in _clow) < 1e-9,
 })
 checks.update({
     "import: capture.json from the rip": imp_meta.get("game_exe") == "Frostpunk.exe"

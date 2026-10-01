@@ -72,9 +72,9 @@ For every walker it prints its loop, stride and cycle time, the body's forward s
 - body speed 100–100% of the average, bob 4–8 cm;
 - planted foot slips about 1 cm/s median, 2.5–8 p90 (walking at 1.6–2.0 m/s);
 - lowest point −0.0..+0.3 cm from the ground;
-- start 8–62 cm from the game's pose;
+- start 7–68 cm from the game's pose;
 - no route runs into geometry (an earlier version brushed a road tile's snow bank on `mesh_648`'s route);
-- `9 walk, 2 keep their pose, 2 pair(s) walk through each other`: `mesh_646` crosses the routes of `mesh_326` and `mesh_636` at a junction just as they pass (closest 14–16 cm, for a moment). Walkers on the same street never meet head-on (two lanes), but they don't wait for each other at crossings.
+- `9 walk, 2 keep their pose, 2 pair(s) walk through each other`: `mesh_646` crosses the routes of `mesh_326` and `mesh_636` at a junction just as they pass (closest 9–14 cm, for a moment). Walkers on the same street never meet head-on (two lanes), but they don't wait for each other at crossings.
 
 Also check how smooth the routes are: on a straight street the walker shouldn't turn. Measured from the path texture's yaw, the turn rate is about 0.1 rad/m median and 0.3–0.5 rad/m p90; the highest values (2–6 rad/m) are the half-circle turns at the street ends. Strong turns that flip side (left then right, over 0.3 rad/m) happen 0–1 times per route; when the lane offset was switched point by point, there were 3–19, and the walkers zigzagged.
 
@@ -134,7 +134,7 @@ The 11 two-legged walkers sit at four points of the stride, a quarter cycle apar
 
 ### 4. The baked cycle (`ue/walkers.py`, `bake_cycle`)
 
-48 frames per walker, in a walking frame (x forward, ground at z 0). The body moves at a steady speed: the shader carries it along its path, and the bones add only its sway and its rise and fall. The feet are kept planted by re-timing the legs and by foot locks:
+96 frames per walker, in a walking frame (x forward, ground at z 0). The body moves at a steady speed: the shader carries it along its path, and the bones add only its sway and its rise and fall. The feet are kept planted by re-timing the legs and by foot locks:
 
 - **A planted foot** (`_planted`) is one whose lowest point is within 4 mm of the ground in two frames running. Its vertices within 1.5 cm of the ground then carry the person. A looser test (1.5 cm) took the swinging foot right after toe-off for a planted one: the game's toe stays that close for a while.
 - **Re-timing** (`leg_timing`): the game's cycle (and the gait curves fitted to it) moves a planted foot back at 1.4–4.1 m per cycle within one step, slowly mid-step and fast before it lifts. While each foot is down, its leg's poses play faster or slower, so the foot moves back at an even pace (afterwards within about 2% between the 10th and 90th percentile). It eases in and out over 8 of 192 frames at heel strike and toe-off. The poses are the game's, only their timing within the step changes, and the steps per second stay the same.
@@ -195,17 +195,71 @@ The loop (lane, half circle, lane, half circle) is resampled to 512 points with 
 | per vertex | UV1, UV2 | the 4 bone indices |
 | | UV3, UV4 | the 4 weights (normalised) |
 | | UV5, UV6.x | the bind position: Unreal cm, standing at the origin facing +X |
-| per walker | `unreal/walkers/bones.png` → `T_GTB_WalkerBones` | one row per walker and bone (24 rows each), 3 texels per frame: the rows of the 3x4 matrix (R, t) from the bind position to the walking frame. RGB = R in −1..1, A = t in ±`BoneRange` (200 cm), both stored as (v + 1) / 2. The 49th frame holds the captured pose's rotations. |
+| per walker | `unreal/walkers/bones.png` → `T_GTB_WalkerBones` | one row per walker and bone (24 rows each), 3 texels per frame: the rows of the 3x4 matrix (R, t) from the bind position to the walking frame. RGB = R in −1..1, A = t in ±`BoneRange` (200 cm), both stored as (v + 1) / 2. The last (97th) frame holds the captured pose's rotations. Clips add a block of rows each, after the walk's (see Clips). |
 | | `unreal/walkers/paths.png` → `T_GTB_WalkerPaths` | one row per walker: 512 + 1 points (x, y, z, yaw) along its loop, relative to the actor, in ±`PathRange` per channel; the last point is the first with yaw + 2π |
 | per actor | custom primitive data 0–3 (`WalkerA`) | bone row, path row, phase at time 0, cycle time (× `WalkPeriod`; 0 = keep the pose) |
 | | custom primitive data 4–7 (`WalkerB`) | stride (cm per cycle), loop length (cm), start (cm along the loop), 1 |
 
 - **The textures** are 16-bit PNGs, imported as `TC_HDR_F32` with nearest filtering, no mips and no streaming. Half floats would round the paths to 2 cm. The shader reads them with `Texture.Load`.
 - **The shader** (`gtb_hlsl.WALKER_WPO`): the cycle position is frac(phase + time / cycle). Each of the 4 bones' matrices is blended between two frames, the vertex is skinned in the walking frame, then placed and turned at its point along the loop: frac((start + progress × stride) / loop length). It returns that position minus the vertex's own, as World Position Offset.
-- **Normals:** the mesh keeps the captured pose's normals and tangents, so the material turns them by R_now R_captured^T. The rotation's first and last columns go to the pixel shader through two VertexInterpolators (`QX`, `QZ`). `WALKER_ROT` turns the normal map's world normal and the vertex normal the snow reads, with `tangent_space_normal` off.
+- **Normals:** the mesh keeps the captured pose's normals and tangents, so the material turns them by R_now R_captured^T. The rotation's first and last columns go to the pixel shader through two VertexInterpolators (`QX`, `QZ`). `WALKER_ROT` turns the normal map's world normal, with `tangent_space_normal` off. The snow reads the captured pose's vertex normal, so it stays on the clothes where the game had it: turned to the current pose, a person crawling prone (a clip) had its whole back snowed over, as pale as the ground.
 - **Time** is `SceneTime + EngineTimeWeight × Time`, as in `Graph.time()`. The loop wraps, so engine time can grow without limit (unlike the smoke rise).
 - **Bounds:** each walker mesh's bounds are extended over its whole loop (`walker_extent_cm`), so it isn't culled when it walks away from its spot.
 - **Names:** each walker gets `MI_Walk_<its base material>` (e.g. `MI_Walk_M027`) with the base's values, so the people lying in the snow keep `MI_M027`. The `MI_M###` numbering skips the walker instances, so no other material is renumbered (`ue.live materials` points actors by name; see CLAUDE.md).
+
+## Clips: animations from Mixamo
+
+Any walker can play an animation clip instead of the walk, e.g. Mixamo's zombie crawl on `mesh_655` (a child), and swap back at any time.
+
+### Add a clip
+
+1. On [mixamo.com](https://www.mixamo.com) (an Adobe login), pick an animation. Leave **In Place** off, so the clip keeps its travel: that becomes the speed along the person's route. A clip made in place plays on the spot.
+2. Download: **FBX Binary, Without Skin**, 30 fps, keyframe reduction none. Without Skin is the skeleton alone (Mixamo's own character; it doesn't matter which).
+3. Save it as `animations/<name>.fbx` (e.g. `animations/zombie_crawl.fbx`). The folder is out of git: Mixamo's licence lets you use the animations in your work but not share the files. Blender reads each one once into `animations/<name>.npz` (`blender/fbx_clip.py`).
+
+Any FBX with Mixamo's bone names works (`mixamorig:Hips`, `LeftArm`, ...; the prefix doesn't matter).
+
+Claude can do steps 1–3 in its browser pane: you log in to Mixamo there yourself (Claude never types passwords), name the animation you want, and Claude finds it, sets the download options and asks before each download.
+
+### Which person
+
+A person is named after its mesh, e.g. `mesh_655_655`. To find one, click the person in the Unreal viewport: the Outliner shows its name, in the `People` folder. `python -m ue.anim <capture>` lists everyone who can play a clip. Only people who walk can (on Frostpunk: 9 of 25).
+
+### On another PC
+
+Everything above works on a friend's PC from the project alone, with two differences:
+
+- **Their own clips.** `animations/` isn't in git (Mixamo's licence doesn't allow sharing the files), so they download the clips they want from Mixamo with their own (free) Adobe account, into their own `animations/`.
+- **Other names.** Their rip numbers its meshes in its own order, so their people have other names (your `mesh_655` is some other mesh there). They find theirs as above.
+
+### Swap
+
+With the editor open on the capture's level:
+
+```bash
+python -m ue.anim Frostpunk_20260929_115750 655 zombie_crawl
+```
+
+The person is `mesh_655_655`, `655`, or `all`; the clip is a file name in `animations/` or `walk`. `python -m ue.anim <capture>` lists the clips and who plays what.
+
+- A clip already baked swaps instantly: only the actor's custom primitive data changes (one undo step, unsaved). The choice goes into `look.json` (`unreal.walkers.clips`, e.g. `{"mesh_655_655": "zombie_crawl"}`), so `gtb.py unreal` and `ue.live walkers` keep it.
+- A clip new to `animations/` (or an editor whose walker data is older than the plan) first gets `python -m ue.live walkers <capture>` (about 2 minutes), which bakes every clip for every walker.
+- In the editor, the walkers' clock is the editor's, hours by now. A person changing speed would jump along its route, so the swap moves its start along the route to keep it where it is. A Sequencer render, whose clock starts at 0, then starts that person elsewhere on its route; `ue.live walkers` puts the starts back.
+- People who keep their pose (no room to walk, crutches, lying) play nothing.
+
+The export prints `[people] mesh_655_655: ...; plays zombie_crawl` and `[people] clip zombie_crawl: 5.13 s loop, 1.96-3.06 m per cycle` (the stride scales with each person's hip height). `walker_check` prints `mesh_655_655: plays zombie_crawl, 1.96 m per 5.13 s cycle (0.38 m/s) | lowest point -0.0..+0.1 cm from the ground` and skips the walk's checks for it.
+
+### How it works (`gtb/clips.py`)
+
+- **Facing:** up is Blender's z, left runs from the right hip to the left; the clip is turned so its travel over a cycle points forward (x).
+- **Loops:** a clip whose last frame repeats its first (within 5°) is a loop; the repeat is dropped and the travel measured over the whole cycle (Mixamo's zombie crawl: 154 frames at 30 fps, 2.15 m).
+- **Bones:** each rig bone copies its Mixamo bone's turn away from Mixamo's rest pose, in world space: R = Q · A · H, where Q is Mixamo's world rotation now times its rest rotation's inverse, H turns the bind pose to the walking frame, and A matches the rests. Both rests stand upright facing forward, but Frostpunk binds in an A-pose with the forearms forward and Mixamo in a T-pose: so the upper arms, forearms, thighs and calves first turn (A) to point where Mixamo's do at rest, and the hands, fingers and feet take their parent's A. Without it, the arms are off by about 60°. Mapping: pelvis Hips, spine Spine, chest Spine2, neck Neck, head Head, clavicles Shoulder, upper arms Arm, forearms ForeArm, hands Hand, fingers HandMiddle1, thighs UpLeg, calves Leg, feet Foot.
+- **Size:** the body's motion and the stride scale by hip height (the pelvis joint over the bind pose's lowest point, against Mixamo's hips over its lowest joint).
+- **Ground:** the lowest point is put on the ground in every frame. The clip's own height, scaled, floated Frostpunk's bulkier child up to 12 cm in the flat part of the crawl.
+- **Speed:** the hips' steady travel becomes the stride; what's left of their motion stays in the bones. The cycle time is the clip's own length (custom primitive data: seconds / `WalkPeriod`), and each person gets its own phase (`clip_phase`), so people playing one clip aren't in step.
+- **Frames:** every clip is resampled to the walk's 96 frames (rotations slerped): 19 per second for a 5 s clip.
+
+Not done: clips for the people lying down or on crutches (they have no route or bone UVs yet), foot or hand locks for clips (the planted hands of a crawl may slide a little where the proportions differ from Mixamo's), clips that leave the ground (a jump: the lowest point is held on the ground), blending between clips (a swap cuts).
 
 ## A rip from another game
 
@@ -261,7 +315,10 @@ The loop (lane, half circle, lane, half circle) is resampled to 512 points with 
 | path | what |
 |---|---|
 | `gtb/characters.py` | Skin data (`skin_arrays`, `backfill`), the rig, the bone solve (`Person`), the walk cycle (`fit_walk`, `Walk`) |
-| `ue/walkers.py` | Finding the walkers, the baked cycle, their routes (or lanes), the textures and plan entries; `replay` mirrors the shader |
+| `ue/walkers.py` | Finding the walkers, the baked cycle, their routes (or lanes), the textures and plan entries (with every clip's); `replay` mirrors the shader |
+| `gtb/clips.py`, `blender/fbx_clip.py` | Animation clips: reading an FBX (Blender), retargeting it onto a person |
+| `ue/anim.py` | Swapping a person's clip in the open editor |
+| `animations/` | The clips (`<name>.fbx`, out of git) |
 | `ue/routes.py` | The walkable map (`WalkMap`), the roads (`road_meshes`), the routes (`plan_route`, `route_points`) |
 | `ue/walker_check.py` | The checks above, and the routes map |
 | `ue/editor/gtb_hlsl.py` | `WALKER_WPO`, `WALKER_ROT` |
@@ -270,4 +327,4 @@ The loop (lane, half circle, lane, half circle) is resampled to 512 points with 
 | `ue/live.py` | `walkers`: the same, into an open editor |
 | `ue/export.py` | Walker meshes get the bone UVs and `MI_Walk_*`; the solid surfaces with their materials go to the walkable map; the plan's `walkers` section |
 | `profiles/frostpunk.json` | The `characters` rig |
-| `tests/selftest.py` | A synthetic person (bones solved, planted foot, closed loop) and a synthetic street (the route keeps to the road, round a building) |
+| `tests/selftest.py` | A synthetic person (bones solved, planted foot, closed loop), a synthetic street (the route keeps to the road, round a building) and a synthetic Mixamo clip (T-pose rest retargeted onto the A-pose) |

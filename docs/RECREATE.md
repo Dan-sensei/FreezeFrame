@@ -29,7 +29,7 @@ Without the rip, nothing about the scene can be recreated. The code, the profile
 | Ninja Ripper | 2.18 | Only needed for new captures. Settings are in `CLAUDE.md` (First run on a new PC). |
 | GPU | DX12, SM6, ray tracing | The Unreal project uses Lumen with hardware ray tracing. |
 
-Check the install before touching the capture. Every line of the self-test must say `PASS` (27 checks):
+Check the install before touching the capture. Every line of the self-test must say `PASS` (28 checks):
 
 ```bash
 python tests/selftest.py
@@ -172,6 +172,7 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
   - Each walker's mesh has its own `MI_Walk_*` instance (the base material's values) on `MI_Look_Walker`, and sits in the `People` folder.
   - `MI_Look_Walker`'s `Walk` = 0 stops them all (they stand in the game's pose); `WalkPeriod` is an adult's seconds per cycle (two steps). Both come from `look.unreal.walkers`.
   - With the editor open, `python -m ue.live walkers Frostpunk_20260929_115750` adds or refreshes them (about 2 minutes) and touches nothing else.
+  - **Animations from Mixamo (optional):** any walking person can play a Mixamo animation instead of the walk, e.g. a zombie crawl. Download it as FBX Binary, Without Skin, into `animations/<name>.fbx` (not in git: get your own copy with a free Adobe account), click the person in the viewport to read its name in the Outliner, then `python -m ue.anim Frostpunk_20260929_115750 <person> <name>` (`walk` puts the walk back). Everything is in [WALKING_PEOPLE.md](WALKING_PEOPLE.md), "Clips".
   - `python -m ue.walker_check Frostpunk_20260929_115750` must end with `9 walk, 2 keep their pose, 2 pair(s) walk through each other` (`mesh_646` crossing two others at a junction for a moment), with the body speed at 100–100% of the average (no surge in each step) and planted feet slipping about 1 cm/s. `captures/<name>/unreal/walker_check/routes.png` shows the routes on the streets: smooth two-lane lines with half-circle turns at the ends, no zigzags.
 - **Close-ups:** these are dollied from the game camera. Unreal's close-ups are a little darker than Blender's (up to about 0.4 stops) because Lumen occludes sky light, which EEVEE doesn't. That is expected.
 
@@ -190,6 +191,7 @@ To go back to night, copy `look_night.json` over `look.json` and run `gtb.py ren
 | `ue/pipeline.py` | Runs Unreal headless (commandlet, then Movie Render Queue) and writes the comparison sheets |
 | `gtb/characters.py` | People: each one's bones solved from its skinned draw, the walk cycle fitted to the walkers |
 | `ue/walkers.py`, `ue/routes.py`, `ue/walker_check.py` | Walking people for Unreal: the baked cycle, routes along the city's streets (a walkable map from the rip), the two data textures, a numpy replay of `M_GTB_Walker`, and its checks ([WALKING_PEOPLE.md](WALKING_PEOPLE.md)) |
+| `gtb/clips.py`, `blender/fbx_clip.py`, `ue/anim.py` | Animation clips (Mixamo FBX in `animations/`, not in git): read by Blender, retargeted onto each walker, swapped live with `python -m ue.anim` |
 | `ue/cloth_check.py` | Replays the banner flutter in numpy and reports banners that move into geometry |
 | `ue/live.py` | Pushes the banners, all material instances, the sprite column, the sprites or the walking people into the open editor (`cloth` / `materials` / `plume` / `sprites` / `walkers`) |
 | `ue/fluid_smoke.py` | Builds the generator's Niagara Fluids smoke in the open editor ([GENERATOR_SMOKE.md](GENERATOR_SMOKE.md)) |

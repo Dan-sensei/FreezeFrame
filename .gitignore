@@ -12,3 +12,6 @@ __pycache__/
 
 # Generated Unreal project (content imported from captures)
 unreal_project/
+
+# Animation clips (Mixamo downloads): Mixamo's licence doesn't allow sharing the raw files
+animations/

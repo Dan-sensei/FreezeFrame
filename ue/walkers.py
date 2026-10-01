@@ -22,6 +22,12 @@ cycle time (x the look's WalkPeriod, seconds for a typical adult), stride (cm pe
 cycle), loop length (cm), start (cm along the loop), 1. A walker with no room to
 walk gets cycle time 0 and keeps its pose.
 
+Clips (gtb/clips.py: Mixamo downloads in animations/) are baked for every walker into
+more rows of bones.png, one block of rows per clip after the walk's. A person plays
+one instead of the walk by its custom primitive data alone: bone row, phase, cycle time
+and stride (the clip's travel per cycle; 0 plays it on the spot). The plan keeps every
+clip's data per actor (`walker_clips`), so python -m ue.anim swaps them instantly.
+
 Where they walk: a street of the city, up and back on two lanes (ue/routes.py: a
 walkable map from the rip's surfaces, keeping to the game's roads). The fallback, for
 a person who can't reach the streets or a plan without the scene's surfaces, is a
@@ -34,15 +40,17 @@ import functools
 import json
 import math
 import time
+import zlib
 from pathlib import Path
 
 import cv2
 import numpy as np
 
 from gtb import characters as ch
+from gtb import clips as clip_mod
 from ue import routes
 
-FRAMES = 48           # cycle frames in bones.png (linearly blended)
+FRAMES = 96           # cycle frames in bones.png (linearly blended; a 5 s clip still gets 19 per second)
 PATH_SAMPLES = 512    # points along each loop (routes are up to ~150 m round)
 MAX_RUN = 15.0        # m each way from the start
 TURN_RADIUS = 0.5     # m: lanes 1 m apart
@@ -376,6 +384,27 @@ def bake_cycle(p, walk, frames=FRAMES, fine=192, stride_scale=1.0):
     return np.array(Rs), np.array(ts), stride, float(lift.mean()), H
 
 
+def _put_rows(bones, r0, nb, p, R, t, H):
+    """One person's baked frames (walking frame, Blender axes) into bones.png rows r0..r0+nb."""
+    # bind (Blender, scaled) -> walking frame -> Unreal: R' = M R H^T M, t' = 100 M t
+    Rl = np.einsum("ij,fbjk,kl->fbil", UE, R, H.T @ UE)
+    tl = np.einsum("ij,fbj->fbi", UE, t) * CM
+    Rc = np.einsum("ij,bjk,kl->bil", UE, p.R, H.T @ UE)
+    for b in range(p.nb):
+        for k in range(FRAMES):
+            bones[r0 + b, 3 * k:3 * k + 3, :3] = Rl[k, b]
+            bones[r0 + b, 3 * k:3 * k + 3, 3] = tl[k, b]
+        bones[r0 + b, 3 * FRAMES:3 * FRAMES + 3, :3] = Rc[b]
+    for b in range(p.nb, nb):
+        for k in range(FRAMES + 1):
+            bones[r0 + b, 3 * k:3 * k + 3, :3] = np.eye(3)
+
+
+def clip_phase(name, clip):
+    """A fixed phase per person and clip, so people playing the same clip aren't in step."""
+    return (zlib.crc32(f"{name}|{clip}".encode()) % 1000) / 1000.0
+
+
 # --------------------------------------------------------------------------- paths
 
 def clear_run(soup, p0, f, max_len=MAX_RUN):
@@ -512,11 +541,14 @@ def route_path(wm, soup, p0, f0, log=print):
     return xy, z, yaw, L, s0, road
 
 
-def plan(capture, manifest, walkers, walk, soup, actors, ground=None, log=print):
-    """Bake every walker: (per actor name: custom primitive data and mesh bounds extension,
-    textures info for plan.json). `actors`: {name: actor dict with location (Unreal cm)};
-    `ground`: the solid surfaces with their materials, for routes through the city
-    (without it, every walker gets a straight lane)."""
+def plan(capture, manifest, walkers, walk, soup, actors, ground=None, clips=(), choice=None, period=1.1, log=print):
+    """Bake every walker: (per actor name: custom primitive data, every clip's custom
+    primitive data and mesh bounds extension; textures info for plan.json). `actors`:
+    {name: actor dict with location (Unreal cm)}; `ground`: the solid surfaces with their
+    materials, for routes through the city (without it, every walker gets a straight
+    lane). `clips`: gtb.clips.Clip list; `choice`: {person: clip name} (the look's
+    walkers.clips), the rest walk; `period`: the look's walk period (a clip's cycle time
+    is its own length in seconds, stored in units of it)."""
     out_dir = Path(capture) / "unreal" / "walkers"
     out_dir.mkdir(parents=True, exist_ok=True)
     wm = walk_map(walkers, ground, log)
@@ -528,30 +560,29 @@ def plan(capture, manifest, walkers, walk, soup, actors, ground=None, log=print)
         hips.append(hip)
     hip_ref = float(np.median(hips)) if hips else 1.0
     nb = max(p.nb for p in walkers)
-    bones = np.zeros((nb * len(walkers), 3 * (FRAMES + 1), 4))
+    nw = len(walkers)
+    clips = [c for c in clips if c.name != "walk"]
+    bones = np.zeros((nb * nw * (1 + len(clips)), 3 * (FRAMES + 1), 4))
+    choice = choice or {}
     paths = np.zeros((len(walkers), PATH_SAMPLES + 1, 4))
     per_actor, stuck = {}, []
+    clip_strides = {c.name: [] for c in clips}
     for row, (p, R, t, stride, hip, H) in enumerate(baked):
-        # bind (Blender, scaled) -> walking frame -> Unreal: R' = M R H^T M, t' = 100 M t
-        Rl = np.einsum("ij,fbjk,kl->fbil", UE, R, H.T @ UE)
-        tl = np.einsum("ij,fbj->fbi", UE, t) * CM
-        Rc = np.einsum("ij,bjk,kl->bil", UE, p.R, H.T @ UE)
-        for b in range(p.nb):
-            r0 = row * nb + b
-            for k in range(FRAMES):
-                bones[r0, 3 * k:3 * k + 3, :3] = Rl[k, b]
-                bones[r0, 3 * k:3 * k + 3, 3] = tl[k, b]
-            bones[r0, 3 * FRAMES:3 * FRAMES + 3, :3] = Rc[b]
-        for b in range(p.nb, nb):
-            for k in range(FRAMES + 1):
-                bones[row * nb + b, 3 * k:3 * k + 3, :3] = np.eye(3)
+        _put_rows(bones, row * nb, nb, p, R, t, H)
+        clip_rows = {}
+        for ci, c in enumerate(clips):
+            Rk, tk, sk, secs, Hk = clip_mod.retarget(p, c, FRAMES)
+            r0 = (nw * (1 + ci) + row) * nb
+            _put_rows(bones, r0, nb, p, Rk, tk, Hk)
+            clip_rows[c.name] = (r0, sk, secs)
+            clip_strides[c.name].append(sk)
         # path: a route through the city, else a straight lane
         p0, f0 = start_of(p)
         name = p.name
         loc = np.array(actors[name]["location"], dtype=np.float64)
         # Cycle time relative to look.unreal.walkers.period (a typical adult's):
         # a pendulum's, sqrt of the hip height (children step faster).
-        period = math.sqrt(hip / hip_ref)
+        cycle = math.sqrt(hip / hip_ref)
         phase0 = walk.phases.get(name, walk.phase_for(p))
         route = route_path(wm, soup, p0, f0, log) if wm is not None else None
         if route is not None:
@@ -563,7 +594,8 @@ def plan(capture, manifest, walkers, walk, soup, actors, ground=None, log=print)
             loop = plan_loop(sub, p0, f3)
             if loop is None:
                 stuck.append(name)
-                per_actor[name] = {"walker": [row * nb, row, phase0, 0.0, 0.0, 1.0, 0.0, 0.0], "extent_cm": 300.0}
+                keep = [row * nb, row, phase0, 0.0, 0.0, 1.0, 0.0, 0.0]
+                per_actor[name] = {"walker": keep, "clips": {"walk": keep}, "extent_cm": 300.0}
                 continue
             f, a, c, lane = loop
             pts, seg = loop_points(p0, f, a, c, lane)
@@ -578,12 +610,24 @@ def plan(capture, manifest, walkers, walk, soup, actors, ground=None, log=print)
         paths[row, PATH_SAMPLES, :3] = rel[0]
         paths[row, :, 3] = -yaw_b                                 # Unreal's y flip mirrors angles
         ext = float(np.abs(rel).max()) + 250.0
-        per_actor[name] = {"walker": [row * nb, row, round(phase0, 4), round(period, 4), round(stride * CM, 2),
-                                      round(L * CM, 2), round(s0 * CM, 2), 1.0],
-                           "extent_cm": round(ext, 1)}
-        log(f"[people] {name}: {what}, stride {stride:.2f} m, cycle x{period:.2f}")
+        cpd = {"walk": [row * nb, row, round(phase0, 4), round(cycle, 4), round(stride * CM, 2),
+                        round(L * CM, 2), round(s0 * CM, 2), 1.0]}
+        for cn, (r0, sk, secs) in clip_rows.items():
+            cpd[cn] = [r0, row, clip_phase(name, cn), round(secs / period, 4), round(sk * CM, 2),
+                       round(L * CM, 2), round(s0 * CM, 2), 1.0]
+        playing = choice.get(name) if choice.get(name) in cpd else "walk"
+        per_actor[name] = {"walker": cpd[playing], "clips": cpd, "extent_cm": round(ext, 1)}
+        log(f"[people] {name}: {what}, stride {stride:.2f} m, cycle x{cycle:.2f}"
+            + (f"; plays {playing}" if playing != "walk" else ""))
     if stuck:
         log(f"[people] {len(stuck)} with no room to walk keep their pose: {stuck}")
+    for c in clips:
+        st = clip_strides[c.name]
+        log(f"[people] clip {c.name}: {c.duration:.2f} s{' loop' if c.loop else ''}, "
+            f"{min(st):.2f}-{max(st):.2f} m per cycle")
+    unknown = sorted(n for n, c in choice.items() if c != "walk" and c not in {k.name for k in clips})
+    if unknown:
+        log("[people] no such clip in animations/ (they walk): " + ", ".join(f"{n}: {choice[n]}" for n in unknown))
     bone_range = float(math.ceil(np.abs(bones[..., 3]).max() / 50.0 + 1e-9) * 50.0) or 50.0
     rng = np.abs(paths).max((0, 1))
     path_range = [float(math.ceil(max(rng[0], rng[1]) / 100.0 + 1e-9) * 100.0)] * 2 + \
@@ -593,6 +637,7 @@ def plan(capture, manifest, walkers, walk, soup, actors, ground=None, log=print)
     info = {"bones_png": str((out_dir / "bones.png").resolve()), "paths_png": str((out_dir / "paths.png").resolve()),
             "frames": FRAMES, "path_samples": PATH_SAMPLES, "bone_range": bone_range, "path_range": path_range,
             "count": len(walkers), "bone_rows": nb,
+            "clips": {c.name: {"seconds": round(c.duration, 3), "loop": c.loop} for c in clips},
             "road_material": getattr(wm, "road_material", None) if wm is not None else None}
     return per_actor, info
 

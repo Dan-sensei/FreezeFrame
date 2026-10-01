@@ -117,18 +117,24 @@ def check(cap):
         p = people[name]
         uvs = W.vertex_uvs(p)
         cycle = cpd[3] * period
-        sp, stride, surge, bob = slip(p, walk)
-        sp = sp / cycle                      # per cycle -> per second
-        V0 = W.replay(info, uvs, cpd, 0.0, loc, period)
-        start = float(np.median(np.linalg.norm(V0 - p.P * [100.0, -100.0, 100.0], axis=1)))
         gaps = []
-        loop_s = cpd[5] / cpd[4] * cycle     # one round of the loop
+        loop_s = cpd[5] / cpd[4] * cycle if cpd[4] > 0 else 4 * cycle    # one round of the loop
         for t in np.linspace(0, loop_s, 120, endpoint=False):
             V = W.replay(info, uvs, cpd, t, loc, period)
             s = ((cpd[6] + t / cycle * cpd[4]) / cpd[5] % 1.0) * info["path_samples"]
             i0 = int(s)
             g = (1 - (s - i0)) * paths[int(cpd[1]), i0, 2] + (s - i0) * paths[int(cpd[1]), i0 + 1, 2] + loc[2]
             gaps.append(V[:, 2].min() - g)
+        playing = next((k for k, v in (a.get("walker_clips") or {}).items() if v[0] == cpd[0]), "walk")
+        if playing != "walk":                # an animation clip (look.unreal.walkers.clips): no walk checks
+            rows.append(f"{name}: plays {playing}, {cpd[4] / 100:.2f} m per {cycle:.2f} s cycle "
+                        f"({cpd[4] / 100 / cycle:.2f} m/s) | lowest point {min(gaps):+.1f}..{max(gaps):+.1f} cm "
+                        f"from the ground")
+            continue
+        sp, stride, surge, bob = slip(p, walk)
+        sp = sp / cycle                      # per cycle -> per second
+        V0 = W.replay(info, uvs, cpd, 0.0, loc, period)
+        start = float(np.median(np.linalg.norm(V0 - p.P * [100.0, -100.0, 100.0], axis=1)))
         rows.append(f"{name}: loop {cpd[5] / 100:.1f} m round, stride {stride:.2f} m, {cycle:.2f} s per cycle "
                     f"({stride / cycle:.1f} m/s, body speed {surge[0] * 100:.0f}-{surge[1] * 100:.0f}% of it, "
                     f"bob {bob * 100:.1f} cm) | planted foot slips {np.median(sp):.1f} cm/s median, "

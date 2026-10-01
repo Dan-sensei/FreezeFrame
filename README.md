@@ -100,7 +100,7 @@ The console output of `process` tells you most of this:
 ## Known limits
 
 - Game lights and shaders aren't in the rip, only geometry and textures. Lighting is rebuilt and matched, not extracted.
-- Foliage with wind and GPU particles are placed correctly on screen, but they are frozen in their posed state. Skinned people are frozen in Blender; in Unreal the upright ones walk (their bones are solved from the rip and the walk cycle is fitted to them, see [docs/WALKING_PEOPLE.md](docs/WALKING_PEOPLE.md)).
+- Foliage with wind and GPU particles are placed correctly on screen, but they are frozen in their posed state. Skinned people are frozen in Blender; in Unreal the upright ones walk (their bones are solved from the rip and the walk cycle is fitted to them, see [docs/WALKING_PEOPLE.md](docs/WALKING_PEOPLE.md)), or play an animation you download from Mixamo instead, swapped with one command (`python -m ue.anim`, same doc, "Clips").
 - Everything is placed in camera space. The camera sits at the origin with its real pitch, and the ground is levelled to +Z.
 
 ## Unreal Engine

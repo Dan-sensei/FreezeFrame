@@ -15,7 +15,7 @@ F1, F2, F3, F4 = (unreal.CustomMaterialOutputType.CMOT_FLOAT1, unreal.CustomMate
                   unreal.CustomMaterialOutputType.CMOT_FLOAT3, unreal.CustomMaterialOutputType.CMOT_FLOAT4)
 
 # Bump when a master graph changes: existing masters are rebuilt in place.
-MASTER_VERSION = "9"
+MASTER_VERSION = "10"
 
 
 class Graph:
@@ -174,7 +174,8 @@ def build_surface(mat, defaults, mpc, masked, vnormal=None):
 
 def build_walker(mat, defaults, mpc):
     """Surface that walks (gtb_hlsl.WALKER_WPO, ue/walkers.py): skinned in the vertex
-    shader from the bone and path textures; its normals turned to the current pose."""
+    shader from the bone and path textures; its shading normal turned to the current pose
+    (the snow keeps the captured one)."""
     linear = unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR
     q = {}
 
@@ -205,8 +206,10 @@ def build_walker(mat, defaults, mpc):
             if not MEL.connect_material_expressions(wpo, k, vi, ""):
                 raise RuntimeError(f"could not connect {k} to its vertex interpolator")
             q[k] = vi
-        return g.custom(hlsl.WALKER_ROT, {"V": g.node(unreal.MaterialExpressionVertexNormalWS),
-                                          "QX": q["QX"], "QZ": q["QZ"]}, F3, desc="GTB Walker vertex normal")
+        # The snow keeps the captured pose's normal: it stays on the clothes where the game
+        # had it (shoulders, caps). Turned to the current pose, a person crawling prone
+        # (gtb/clips.py) had its whole back snowed over, as pale as the ground.
+        return g.node(unreal.MaterialExpressionVertexNormalWS)
 
     g = build_surface(mat, defaults, mpc, False, vnormal)
     mat.set_editor_property("tangent_space_normal", False)

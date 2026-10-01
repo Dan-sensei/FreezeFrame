@@ -23,7 +23,9 @@ Keys under look["unreal"] only affect Unreal; Blender ignores them:
                    the game's 9-row banners zigzag), speed (ripples per second)}
   walkers          the people the rip caught upright walk loops (ue/walkers.py, M_GTB_Walker):
                    {enabled, period (seconds per walk cycle, two steps, of a typical adult;
-                   children step faster, by the square root of their hip height)}
+                   children step faster, by the square root of their hip height), clips ({person:
+                   clip}: a person plays an animation clip from animations/ instead of the walk,
+                   e.g. {"mesh_655_655": "zombie_crawl"}; python -m ue.anim swaps them live)}
   mist             the game's ground-mist cards (smoke sprites >= 40 m wide, MI_Look_Mist): {opacity,
                    soft_fade (m: fade out this close to the geometry behind, so the cards never cut
                    a line through buildings), near_fade (m from the camera), loop_seconds (editor loop)}
@@ -57,7 +59,7 @@ UNREAL_DEFAULTS = {"exposure_offset": 0.0, "bloom_intensity": None, "bloom_thres
                    "cloth": {"ripple": 0.03, "sway": 0.08, "wavelength": 0.75, "speed": 0.5},
                    # Frostpunk's adults step about 2.2 m per cycle (their world is 1.3x life size):
                    # 1.1 s makes 2 m/s, a brisk walk in the cold.
-                   "walkers": {"enabled": True, "period": 1.1},
+                   "walkers": {"enabled": True, "period": 1.1, "clips": {}},
                    # The game's ground mist (tuned by eye in the editor, 2026-09-29).
                    "mist": {"opacity": 1.0, "soft_fade": 10.0, "near_fade": 20.0, "loop_seconds": 30.0},
                    # Generator plume (Niagara Fluids fire template, smoke-heavy source). Tuned by eye
@@ -179,9 +181,14 @@ def ue_look(look, plan, lut_path):
     return out
 
 
+def walker_settings(look):
+    """look.unreal.walkers over UNREAL_DEFAULTS."""
+    return dict(UNREAL_DEFAULTS["walkers"], **((look.get("unreal") or {}).get("walkers") or {}))
+
+
 def walker_params(look):
-    """M_GTB_Walker's look parameters (look.unreal.walkers over UNREAL_DEFAULTS)."""
-    w = dict(UNREAL_DEFAULTS["walkers"], **((look.get("unreal") or {}).get("walkers") or {}))
+    """M_GTB_Walker's look parameters."""
+    w = walker_settings(look)
     return {"Walk": 1.0 if w["enabled"] else 0.0, "WalkPeriod": float(w["period"])}
 
 

@@ -19,9 +19,10 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+from gtb import clips as clip_mod, config  # noqa: E402
 from gtb.process import sprite_attributes  # noqa: E402
-from gtb.scene_common import (assign_slots, below_scene, decal_volume, overlay_layer, packed_channels,  # noqa: E402
-                               scene_floor, srgb_to_linear)
+from gtb.scene_common import (assign_slots, below_scene, decal_volume, load_look, overlay_layer,  # noqa: E402
+                               packed_channels, scene_floor, srgb_to_linear)
 from ue.gltf import GlbWriter, blender_to_gltf  # noqa: E402
 from ue import walkers as walker_mod  # noqa: E402
 
@@ -713,10 +714,16 @@ def export(capture: Path, solo=False):
     soup = TriSoup(solids)
     walkers_info = None
     if walker_actors:
+        # Animation clips (animations/*.fbx) for every walker; the look says who plays which.
+        from ue.look import walker_settings     # ue.look imports this module
+        ws = walker_settings(load_look(capture / "look.json"))
+        clip_list = clip_mod.library(config.load()["blender_exe"]) if clip_mod.CLIP_DIR.exists() else []
         per_actor, walkers_info = walker_mod.plan(capture, manifest, [walking[n] for n in walker_actors], walk, soup,
-                                                  walker_actors, ground)
+                                                  walker_actors, ground, clips=clip_list, choice=ws["clips"],
+                                                  period=float(ws["period"]))
         for n, v in per_actor.items():
             walker_actors[n]["walker"] = v["walker"]           # custom primitive data 0-7
+            walker_actors[n]["walker_clips"] = v["clips"]      # the same for every clip (ue.anim swaps them)
             walker_actors[n]["walker_extent_cm"] = v["extent_cm"]   # mesh bounds extension
     for actor, pos_b, tris in cloth_actors:
         n, budgets, held, sides = cloth_room(pos_b, tris, soup)
