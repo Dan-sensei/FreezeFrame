@@ -94,6 +94,7 @@ Tested with UE 5.8.3 on the same Frostpunk capture (2026-09-29): the game view i
   - Coincident vertices make the mesh build quadratic.
   - Sequencer keys are in ticks (display frame × 1000 at 24 fps).
   - The ObjectLocalBounds material node returns bounds padded by the material's Max World Position Offset Displacement (`PrimitiveSceneProxy::SetTransform`). Use PreSkinnedLocalBounds, which the engine un-pads. With 600 cm of padding, the cloth shader put each banner's top 6 m too high, so the top rows moved and the ripples came out about 1.75× too big. The numpy mirror couldn't see this, so check motion in Unreal too (per-pixel change over captured frames).
+  - A material with a world-space normal output (`tangent_space_normal` off) doesn't get Unreal's two-sided flip on back faces: multiply the normal by `TwoSidedSign`. The rip's people are wound inward, and without it the walkers were lit inside out.
   - A VectorParameter's default output (`""`) is RGB only. Wire `"RGBA"` when the HLSL reads `.w`, or the shader fails with `vector swizzle 'w' is out of bounds`.
   - Git Bash rewrites `/Game/...` arguments; the pipeline calls Unreal from Python, so it isn't affected.
 - Time: effects use `MPC_GTB_Time`. `SceneTime` is keyed by the sequences. `EngineTimeWeight` is 1 outside Sequencer, so the editor viewport animates. Anything that accumulates, like smoke rise, must use `SceneTime` only: the editor clock grows without limit, and sprites once ended up hundreds of metres up in the sky. Snowfall wraps, so engine time is safe for it.

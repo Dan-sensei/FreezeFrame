@@ -409,12 +409,16 @@ QZ = float3(Q[0][2], Q[1][2], Q[2][2]);
 return ObjPos + q.xyz + mul(Y, p) - WorldPos;
 """
 
-# A world-space vector turned from the captured pose to now (columns QX, QY = QZ x QX, QZ).
+# The shading normal turned from the captured pose to now (columns QX, QY = QZ x QX, QZ),
+# then flipped on faces seen from behind (S = TwoSidedSign). A world-space normal output
+# skips the flip Unreal gives tangent-space normals on two-sided materials, and the rip's
+# people are wound inward (their normals, made from the winding, point into the body):
+# without it every walker was lit inside out, nearly black once it lay down to crawl.
 WALKER_ROT = r"""
 float3 qx = normalize(QX);
 float3 qz = normalize(QZ);
 float3 qy = cross(qz, qx);
-return normalize(qx * V.x + qy * V.y + qz * V.z);
+return S * normalize(qx * V.x + qy * V.y + qz * V.z);
 """
 
 # Shading of the smoke column, after the game's burning generator seen from below:

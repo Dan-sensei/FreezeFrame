@@ -15,7 +15,7 @@ F1, F2, F3, F4 = (unreal.CustomMaterialOutputType.CMOT_FLOAT1, unreal.CustomMate
                   unreal.CustomMaterialOutputType.CMOT_FLOAT3, unreal.CustomMaterialOutputType.CMOT_FLOAT4)
 
 # Bump when a master graph changes: existing masters are rebuilt in place.
-MASTER_VERSION = "10"
+MASTER_VERSION = "11"
 
 
 class Graph:
@@ -207,8 +207,8 @@ def build_walker(mat, defaults, mpc):
                 raise RuntimeError(f"could not connect {k} to its vertex interpolator")
             q[k] = vi
         # The snow keeps the captured pose's normal: it stays on the clothes where the game
-        # had it (shoulders, caps). Turned to the current pose, a person crawling prone
-        # (gtb/clips.py) had its whole back snowed over, as pale as the ground.
+        # had it (shoulders, caps) instead of settling on whatever faces up now (a crawler's
+        # back, gtb/clips.py).
         return g.node(unreal.MaterialExpressionVertexNormalWS)
 
     g = build_surface(mat, defaults, mpc, False, vnormal)
@@ -218,7 +218,8 @@ def build_walker(mat, defaults, mpc):
                 transform_type=unreal.MaterialVectorCoordTransform.TRANSFORM_WORLD)
     if not MEL.connect_material_expressions(g.surface, "NormalTS", tw, ""):
         raise RuntimeError("could not connect NormalTS to the tangent -> world transform")
-    n = g.custom(hlsl.WALKER_ROT, {"V": tw, "QX": q["QX"], "QZ": q["QZ"]}, F3, desc="GTB Walker normal")
+    n = g.custom(hlsl.WALKER_ROT, {"V": tw, "QX": q["QX"], "QZ": q["QZ"],
+                                   "S": g.node(unreal.MaterialExpressionTwoSidedSign)}, F3, desc="GTB Walker normal")
     g.out(n, "", MP.MP_NORMAL)
     g.out(q["wpo"], "", MP.MP_WORLD_POSITION_OFFSET)
 
