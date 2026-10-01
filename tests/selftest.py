@@ -205,6 +205,25 @@ for _k in range(48):
         _slip.append(np.linalg.norm((_b2[_on] - _a[_on])[:, :2], axis=1).min())
 _lp, _seg = walkers_mod.loop_points(np.zeros(3), np.array([1.0, 0, 0]), 5.0, 3.0, np.array([0, 1.0, 0]))
 _xy, _yaw, _L = walkers_mod.resample(_lp, _seg, 64)
+# Routes (ue/routes.py): ground, a 10 m building and a road strip beside it. A person on the
+# road facing +x walks up and down the road and never through the building.
+from ue import routes as routes_mod  # noqa: E402
+_quad = lambda x0, x1, y0, y1, z: (np.array([[x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z]], float),
+                                    np.array([[0, 1, 2], [0, 2, 3]]))
+_bx = np.array([[x, y, z] for x in (-5, 5) for y in (-5, 5) for z in (0, 4)], float)
+_bt = np.array([[0, 1, 3], [0, 3, 2], [4, 6, 7], [4, 7, 5], [0, 4, 5], [0, 5, 1], [2, 3, 7], [2, 7, 6],
+                [0, 2, 6], [0, 6, 4], [1, 5, 7], [1, 7, 3]])
+_wm = routes_mod.WalkMap([_quad(-30, 30, -30, 30, 0.0) + (False,), (_bx, _bt, False),
+                          _quad(-30, 30, -9, -6, 0.05) + (True,)], [-30, -30, -2], [30, 30, 8])
+_route = routes_mod.plan_route(_wm, np.array([-15.0, -7.5, 0.05]), np.array([1.0, 0.0]))
+_pts, _rl, _rs0 = routes_mod.route_points(_wm, _route, np.array([-15.0, -7.5, 0.05])) if _route else (np.zeros((1, 3)), 0, 0)
+_inside = (np.abs(_pts[:, 0]) < 5.3) & (np.abs(_pts[:, 1]) < 5.3)
+checks.update({
+    "routes: a walkable map from surfaces; the route keeps to the road, around the building":
+    _route is not None and not _inside.any() and _wm.road[_route[0]].mean() > 0.8
+    and np.linalg.norm(_pts[np.argmin(np.abs(np.cumsum(np.r_[0, np.linalg.norm(np.diff(_pts[:, :2], axis=0), axis=1)]) - _rs0)), :2] - [-15.0, -7.5]) < 0.3
+    and _pts[np.argmin(np.abs(np.cumsum(np.r_[0, np.linalg.norm(np.diff(_pts[:, :2], axis=0), axis=1)]) - _rs0)) + 4, 0] > -15.0,
+})
 checks.update({
     "people: bones, joints and scale solved from a skinned mesh": _person.res.max() < 1e-3
     and abs(_person.scale - 1.3) < 1e-3 and _person.upright()

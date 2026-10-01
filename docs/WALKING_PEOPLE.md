@@ -1,18 +1,20 @@
 # Walking people in Unreal
 
-A frame rip holds the city's people frozen in the pose the game drew them in. In Unreal, the ones the rip caught upright walk loops through the streets with the game's own walk; the others keep their pose. It needs no manual steps: the level build makes it, and one command adds it to a level that was built before.
+A frame rip holds the city's people frozen in the pose the game drew them in. In Unreal, the ones the rip caught upright walk up and down the city's streets with the game's own walk; the others keep their pose. It needs no manual steps: the level build makes it, and one command adds it to a level that was built before.
 
 Tested on the Frostpunk capture `Frostpunk_20260929_115750` with UE 5.8.3 (2026-10-01). Everything here was checked against Unreal: pictures taken in the editor at fixed times match the numpy mirror of the shader frame by frame.
 
 ## What you see (Frostpunk)
 
 - **25 people. 9 walk, 16 keep their pose:**
-  - 12 lying in the snow (sick or injured);
-  - 2 on crutches (`mesh_642`, `mesh_649`): one leg has no calf or foot bone (Frostpunk's amputees), and a two-legged walk can't do crutches;
-  - 2 with no room to walk: `mesh_1519` stands under a ledge, `mesh_637` between a crate and a wall.
-- **The walk:** heel strike, the swinging knee bent, the arms swinging opposite the legs, the body swaying 4–5 cm over the planted foot, which stays put. Adults walk 2.0 m/s, 1.1 s per cycle of two steps (Frostpunk's world is about 1.3 times life size); children 1.7 m/s, 0.92 s per cycle.
-- **Where:** each one walks a closed loop. It goes along the way the game had it facing, as far as the street is clear, turns round in a half circle onto a lane 1 m beside it, and walks back. Loops are 5–38 m round. `mesh_636` has only 5.8 m of clear street, so its back and forth is obvious; better routes are the next step (see "Not done yet").
-- **At time 0** each walker stands within 8–39 cm of the game's pose. The larger offsets come from people whose lane the planner turned (`mesh_325` by 60°, because the way ahead was short).
+  - 8 walk up and down a street of the city, 60–115 m each way, 82–100% of it on the game's roads;
+  - 1 (`mesh_652`, a child) stands 3.8 m from open street and walks a 2.6 m lane on the spot it has;
+  - 12 lie in the snow (sick or injured) and keep their pose;
+  - 2 on crutches (`mesh_642`, `mesh_649`) keep theirs: one leg has no calf or foot bone (Frostpunk's amputees), and a two-legged walk can't do crutches;
+  - 2 have no way out and keep theirs: `mesh_1519` stands under a ledge, `mesh_637` between a crate and a wall.
+- **The walk:** heel strike, the swinging knee bent, the arms swinging opposite the legs. The body moves at a steady speed, sways 2.5 cm each way over the planted foot and rises and falls 4–8 cm; the planted foot stays put (it slips about 1 cm/s) and the swinging foot clears the ground by 5 cm mid-swing. Adults walk 1.9–2.0 m/s, 1.1 s per cycle of two steps (Frostpunk's world is about 1.3 times life size); children 1.6–1.7 m/s, 0.92 s per cycle.
+- **Where:** each one walks on along the street the game had it on, in the direction it was facing, to a point up to 60 m ahead, turns round, walks back past its start to a point as far behind, turns round again, and so on. The routes follow the game's ring-and-spoke roads round corners and junctions. Everyone keeps 0.75 m to the right of their way, so the way up and the way back are two lanes and people coming the other way pass instead of walking through each other.
+- **At time 0** each walker stands within 8–62 cm of the game's pose, walking the way the game had it facing.
 - **When:** they walk all the time in the editor viewport, like the other effects, and in Sequencer and Movie Render Queue renders, where the Level Sequence's time drives them.
 
 ## Run it
@@ -23,26 +25,29 @@ Tested on the Frostpunk capture `Frostpunk_20260929_115750` with UE 5.8.3 (2026-
 python -m ue.live walkers Frostpunk_20260929_115750
 ```
 
-It takes about 45 s and changes only walker assets and actors:
+It takes about 2 minutes (most of it is the export, which plans the routes) and changes only walker assets and actors:
 
 - `M_GTB_Walker` (in Shared), `MI_Look_Walker`, `T_GTB_WalkerBones` and `T_GTB_WalkerPaths`;
 - the `MI_Walk_*` instances;
 - the walkers' mesh assets, re-imported with their bone data;
 - the walker actors: their material, their loop (custom primitive data), and the `People` folder.
 
-It is one undo step, left unsaved: File → Save All keeps it. It prints `walker master built, compiles (1364 VS / 517 PS instructions)` and `11 walker mesh(es), 11 re-imported with bone data, 5 MI_Walk_* instance(s), loops on 11 actor(s)`. The 11 actors include the 2 that keep their pose: they use the walker material with a cycle time of 0. If a master fails to compile, every walker vanishes; the line then says `SHADER COMPILE FAILED`.
+It is one undo step, left unsaved: File → Save All keeps it. It prints `walker master built, compiles (1364 VS / 517 PS instructions)` and `11 walker mesh(es), 11 re-imported with bone data, 5 MI_Walk_* instance(s), loops on 11 actor(s)` (0 re-imported when the meshes already have their bone data). The 11 actors include the 2 that keep their pose: they use the walker material with a cycle time of 0. If a master fails to compile, every walker vanishes; the line then says `SHADER COMPILE FAILED`.
 
-The export prints these lines (about 20 s on Frostpunk):
+The export prints these lines (about 50 s of the export on Frostpunk; the walkable map takes 16–21 s of it):
 
 ```
 [people] 25 people: 11 walk, 2 upright on a crutch and 12 lying keep their pose
 [people] walk cycle from 11 walkers: legs within 3.3 deg rms (hip x1.34 -4, knee x-1.07 +1, ankle x-1.40 +2)
-[people] mesh_1538_1538: 12.9 m loop, stride 2.17 m, cycle x0.97
+[people] roads: MI_M000 (267 meshes; 5 of 11 people stand on it)
+[people] walkable map: 205191 floors (122705 in the main network, 16042 on roads), 16 s
+[people] mesh_1538_1538: 121 m street up and back (96% on roads), stride 2.17 m, cycle x0.97
 ...
+[people] mesh_652_652: 2.6 m lane, stride 1.57 m, cycle x0.84
 [people] 2 with no room to walk keep their pose: ['mesh_1519_1519', 'mesh_637_637']
 ```
 
-The loop lines give the length of one lane, not the whole loop.
+A street line gives the street's length (the walker covers it twice per round); a lane line is the fallback for someone who can't reach the streets.
 
 ### Settings
 
@@ -56,18 +61,22 @@ The look's surface values (albedo gain, roughness, snow and so on) reach the wal
 
 ## Check it
 
-Without Unreal (about 15 s):
+Without Unreal (about 35 s):
 
 ```bash
 python -m ue.walker_check Frostpunk_20260929_115750
 ```
 
-For every walker it prints its loop, stride and cycle time, how fast a planted foot slips, how far its lowest point gets from the path's ground over a whole loop, and how far its pose at time 0 is from the game's. Then it lists the pairs that walk through each other. Frostpunk, expected:
+For every walker it prints its loop, stride and cycle time, the body's forward speed over the cycle (as a share of the average: it must stay at 100–100%, or the walker surges in every step) and its rise and fall, how fast a planted foot slips (the mean motion of the vertices on the ground of the foot carrying the person), how far its lowest point gets from the path's ground over a whole loop, and how far its pose at time 0 is from the game's. Then the routes that run into geometry (rays from each path point to the next at 0.5, 1.0 and 1.7 m) and the pairs that walk through each other. It also draws `captures/<name>/unreal/walker_check/routes.png`: a top view with the roads light, everything else that's built dark, open ground white, each route in its own colour and each walker's start circled. Frostpunk, expected:
 
-- planted foot slips 0.6–1.3 cm/s median, about 2.5 p90 (walking at 1.7–2.1 m/s);
+- body speed 100–100% of the average, bob 4–8 cm;
+- planted foot slips about 1 cm/s median, 2.5–8 p90 (walking at 1.6–2.0 m/s);
 - lowest point −0.0..+0.3 cm from the ground;
-- start 8–39 cm from the game's pose;
-- `9 walk, 2 keep their pose, 1 pair(s) walk through each other` (`mesh_326` and `mesh_636`, who walked side by side in the game).
+- start 8–62 cm from the game's pose;
+- no route runs into geometry (an earlier version brushed a road tile's snow bank on `mesh_648`'s route);
+- `9 walk, 2 keep their pose, 2 pair(s) walk through each other`: `mesh_646` crosses the routes of `mesh_326` and `mesh_636` at a junction just as they pass (closest 14–16 cm, for a moment). Walkers on the same street never meet head-on (two lanes), but they don't wait for each other at crossings.
+
+Also check how smooth the routes are: on a straight street the walker shouldn't turn. Measured from the path texture's yaw, the turn rate is about 0.1 rad/m median and 0.3–0.5 rad/m p90; the highest values (2–6 rad/m) are the half-circle turns at the street ends. Strong turns that flip side (left then right, over 0.3 rad/m) happen 0–1 times per route; when the lane offset was switched point by point, there were 3–19, and the walkers zigzagged.
 
 The ground and start numbers go through `walkers.replay`, which mirrors the shader and reads the same two textures Unreal does. Keep it in sync with `gtb_hlsl.WALKER_WPO`.
 
@@ -77,7 +86,7 @@ With the editor open on the capture's level, take pictures of one walker at fixe
 python -m ue.walker_check Frostpunk_20260929_115750 --capture mesh_646_646 --times 0,0.5,1,1.5
 ```
 
-It places a temporary SceneCapture2D where ray casts through the rip see the walker's whole loop. It pins the time (`MPC_GTB_Time`: `SceneTime` = t, `EngineTimeWeight` = 0), takes a picture at each time, then restores both values and deletes the capture actor. `captures/<name>/unreal/walker_check/` gets each picture and an `_overlay` copy with the walker as `walkers.replay` places it, in green. The green must sit on the rendered person in every picture. Two people in the same clothes can stand close together (`mesh_326` and `mesh_636`); then the green marks which one is the walker.
+It places a temporary SceneCapture2D where ray casts through the rip see the walker's whole loop. A street route is too long for one camera: add `--follow` and pick times seconds apart (`--times 0,8,16,24,32`), and it places a camera beside the walker for each picture. It pins the time (`MPC_GTB_Time`: `SceneTime` = t, `EngineTimeWeight` = 0), takes a picture at each time, then restores both values and deletes the capture actor. `captures/<name>/unreal/walker_check/` gets each picture and an `_overlay` copy with the walker as `walkers.replay` places it, in green. The green must sit on the rendered person in every picture. Two people in the same clothes can stand close together (`mesh_326` and `mesh_636`); then the green marks which one is the walker.
 
 In the viewport, look for:
 
@@ -125,16 +134,50 @@ The 11 two-legged walkers sit at four points of the stride, a quarter cycle apar
 
 ### 4. The baked cycle (`ue/walkers.py`, `bake_cycle`)
 
-48 frames per walker, in a walking frame (x forward, ground at z 0):
+48 frames per walker, in a walking frame (x forward, ground at z 0). The body moves at a steady speed: the shader carries it along its path, and the bones add only its sway and its rise and fall. The feet are kept planted by re-timing the legs and by foot locks:
 
-- **Height:** the root rises and falls so the lowest vertex touches the ground.
-- **Forward:** between frames, the root advances by how far the foot vertices that are on the ground in both frames moved back. That is the heel early in a stance and the toes at its end, so they stay put. With both feet down, the one moving back is the planted one; the other is still landing. The sum over the cycle is the stride: 2.2–2.4 m for adults, 1.6 m for children.
-- **Sideways:** the same for sideways motion, which makes the 4–5 cm sway.
-- **Measured:** a planted foot slips 0.6–1.3 cm/s on a straight walk. Smoothing the advance, or following the foot's centroid or contact point, slid it 25–55 cm/s. Following the contact point made it jump from heel to toe.
+- **A planted foot** (`_planted`) is one whose lowest point is within 4 mm of the ground in two frames running. Its vertices within 1.5 cm of the ground then carry the person. A looser test (1.5 cm) took the swinging foot right after toe-off for a planted one: the game's toe stays that close for a while.
+- **Re-timing** (`leg_timing`): the game's cycle (and the gait curves fitted to it) moves a planted foot back at 1.4–4.1 m per cycle within one step, slowly mid-step and fast before it lifts. While each foot is down, its leg's poses play faster or slower, so the foot moves back at an even pace (afterwards within about 2% between the 10th and 90th percentile). It eases in and out over 8 of 192 frames at heel strike and toe-off. The poses are the game's, only their timing within the step changes, and the steps per second stay the same.
+- **Stride:** per leg, the even pace a planted foot moves back at; averaged over the two legs, times one cycle: 2.1–2.3 m for adults and 1.5 m for children.
+- **Rise and fall:** the height that puts the lowest vertex on the ground, smoothed to 4 harmonics.
+- **Sway:** 2.5 cm each way, over the first leg at its mid-stance (phase 0.3).
+- **Foot locks** (`_foot_locks`): per leg and frame, how far its foot must move so that the vertices carrying the person stay put. While the foot is up, the lock eases back to 0 (×0.93 per frame of 192), and the foot is lifted so that its lowest point clears the ground by 5 cm × sin(π × progress through the swing). The game's own swing passes only 1–5 cm over the ground.
+- **IK** (`leg_ik`): two bones, hip to knee to ankle. The hip stays, the knee bends in the plane it had, the foot keeps its orientation, and the ankle reaches the locked spot. Where a planted foot is out of reach, it first rolls about the part of it on the ground, its toes at push-off or its heel at landing (`foot_pivot`, up to 60°). Only then is the body lowered there (smoothed).
+- **Measured** (`walker_check`): the body speed is the same all through the cycle, planted feet slip about 1 cm/s median, nothing floats or sinks more than 2 mm, and the swinging foot clears the ground by 5–9 cm.
 
-### 5. The loops (`plan_loop`, `clear_run`, `loop_points`)
+### 5. Routes through the city (`ue/routes.py`)
 
-From where the game had the person (its pelvis over the lowest point of its feet), along its heading, a lane runs as far as:
+**The walkable map** (`WalkMap`), over the walkers' part of the scene plus 65 m around (Frostpunk: 205,191 floors in 16–21 s):
+
+- Points 0.2 m apart on every solid surface (the rip's surfaces without the walkers and hidden effects; banners, lying people and snow drifts included) fall into 0.25 m boxes on a 0.5 m grid of columns.
+- In each column, a run of filled boxes whose top faces up (normal z > 0.5) with 1.9 m free above it is a floor, at the mean height of the up-facing points in its top box. How thick the run is doesn't matter.
+- Floors of neighbouring columns (8 directions) within 35 cm of each other are linked. A wall, post or crate top doesn't link to the ground beside it, so it blocks.
+- A floor whose 8 neighbours are all linked keeps 0.5 m from anything solid (`interior`); with its neighbours' neighbours too, 0.75 m (`inner`). Tight floors (next to something) cost 6 times as much, interior ones 2 times, inner ones 1. They stay usable: forbidding them broke Frostpunk's city into hundreds of islands at the gaps between buildings and road-side stands.
+- The main network is the largest linked set (Frostpunk: 122,705 floors, the whole city and the open snow around it).
+
+**Roads:** the textured surface the most walkers stand on (at least 3 of them; the bare terrain has no UVs and doesn't count). On Frostpunk that is `MI_M000`: 267 tiles, the snow paths of the ring-and-spoke streets, which 5 of the 11 walkers stand on. Every column under a road triangle is road. Walking off the road costs 2.5 times as much.
+
+**A route** (`plan_route`):
+
+- **Start:** the floor nearest the person (up to 1.5 m away, not a tight one) that it can step to in a straight line over floors, not counting its own 0.3 m. Without one, it gets a lane (below). That is `mesh_652`, 3.8 m from the main network.
+- **Ahead:** from the start, the cheapest ways (Dijkstra). The far end ahead is a road floor 25–60 m away, the one whose way leaves the start most along the person's heading, the further the better. If nothing lies ahead, the person turns round.
+- **Behind:** the far end behind is up to 60 m away, on a road if there are any, leaving the start the opposite way from the way ahead and avoiding its cells.
+- **Shape:** the route is the street from the far end behind, through the start, to the far end ahead, walked there and back. So the person starts in mid-street, walking on the way the game had it.
+
+**The line** (`route_points`):
+
+1. **Straighten.** From each kept floor, jump to the furthest one up to 10 m on that a person can walk to in a straight line over interior floors, staying on road columns where the street is road. That gives runs of straight lines instead of the grid's 8-direction staircase.
+2. **Round the corners.** Smooth over ±1.5 m, then ±0.75 m, keeping a smoothed point only where it (and the step to the next) stays on interior floors.
+3. **Room to turn.** Shorten an end of the street (up to 3 m, never past the start) until a half circle of 0.75 m fits there.
+4. **Build the loop.** Up the street on the right-hand lane (0.75 m right of the way; directions smoothed over ±1 m), a half circle round the far end, back on the other lane, a half circle round the near end.
+5. **Lane width.** Work out how much of the lane offset each point may take: the most of 0, ⅓, ⅔ or all of it that stays on interior floors. Then take the least within ±1.5 m and average over ±1.5 m, so a lane narrows gradually where the street does. Where a point or a step still leaves the floors, lower its share and repeat. A turn keeps at least ⅓ (0.25 m radius).
+6. **Pin the start** to the person's exact spot. The shift fades out over 5 m, or over 2.5 or 1.25 m if the longer fade would sweep the line across something solid.
+
+`walkers.route_path` then resamples the line to 512 points. Each point's height comes from a downward ray from 0.6 m above its floor, averaged over ±0.5 m so walkers don't bob on the ruts.
+
+### 6. The lanes: the fallback (`plan_loop`, `clear_run`, `loop_points`)
+
+Without the scene's surfaces, or for a person who can't reach the main network, a straight lane: from where the game had the person (its pelvis over the lowest point of its feet), along its heading, a lane runs as far as:
 
 - rays at 0.35, 1.0 and 1.7 m over the ground, at the centre and ±0.3 m to the sides, hit nothing (with 0.6 m to spare);
 - downward rays every 0.25 m find ground, with no step over 30 cm;
@@ -143,9 +186,9 @@ From where the game had the person (its pelvis over the lowest point of its feet
 
 Other headings up to ±90° are tried, at a cost of 5 cm of lane per degree. Geometry within 15 cm of the start doesn't count: the game puts people where they brush things (`mesh_1519`'s head is under a ledge). A return lane 1 m to one side must be clear for the whole length; if neither side is, the person turns about on the spot. Under 2 m of lane in all, the person keeps its pose. The ray casts use the rip's surfaces, without the walkers. People lying on the ground count as obstacles. Snow drifts count as obstacles and as ground.
 
-The loop (lane, half circle, lane, half circle) is resampled to 128 points with the ground height under each.
+The loop (lane, half circle, lane, half circle) is resampled to 512 points with the ground height under each.
 
-### 6. In Unreal (`M_GTB_Walker`)
+### 7. In Unreal (`M_GTB_Walker`)
 
 | data | where | what |
 |---|---|---|
@@ -153,7 +196,7 @@ The loop (lane, half circle, lane, half circle) is resampled to 128 points with 
 | | UV3, UV4 | the 4 weights (normalised) |
 | | UV5, UV6.x | the bind position: Unreal cm, standing at the origin facing +X |
 | per walker | `unreal/walkers/bones.png` → `T_GTB_WalkerBones` | one row per walker and bone (24 rows each), 3 texels per frame: the rows of the 3x4 matrix (R, t) from the bind position to the walking frame. RGB = R in −1..1, A = t in ±`BoneRange` (200 cm), both stored as (v + 1) / 2. The 49th frame holds the captured pose's rotations. |
-| | `unreal/walkers/paths.png` → `T_GTB_WalkerPaths` | one row per walker: 128 + 1 points (x, y, z, yaw) along its loop, relative to the actor, in ±`PathRange` per channel; the last point is the first with yaw + 2π |
+| | `unreal/walkers/paths.png` → `T_GTB_WalkerPaths` | one row per walker: 512 + 1 points (x, y, z, yaw) along its loop, relative to the actor, in ±`PathRange` per channel; the last point is the first with yaw + 2π |
 | per actor | custom primitive data 0–3 (`WalkerA`) | bone row, path row, phase at time 0, cycle time (× `WalkPeriod`; 0 = keep the pose) |
 | | custom primitive data 4–7 (`WalkerB`) | stride (cm per cycle), loop length (cm), start (cm along the loop), 1 |
 
@@ -180,15 +223,35 @@ The loop (lane, half circle, lane, half circle) is resampled to 128 points with 
 - Stance and swing a quarter cycle off, a planted knee at 44°: a free Fourier fit with free phases on walkers clustered at four stride points.
 - The planted foot sliding sideways at 80 cm/s: the fitted twist and sideways swing of the legs.
 - Feet sliding 25–55 cm/s: a smoothed root advance, or one that followed the foot's centroid or contact point.
+- The walk:
+  - **Each step surged** (the user: it's "like you use more force on each step for a moment ... then slow, then fast"). The first version kept the planted foot still by moving the whole body unevenly: its forward speed swung between 1.3 and 3.8 m/s in every step, and it swayed 14.6 cm. Now the body moves at a steady speed, and the legs are re-timed and locked instead.
+  - **The stride was too long:** adding up, frame by frame, the faster of the two feet on the ground counted the double-support frames twice (2.35 m per cycle instead of about 2.2, with very uneven foot speeds). Each foot's own pace while down is the stride now.
+  - **A little hop in every step:** with a steady body and the game's uneven foot speed, the locked foot got out of the leg's reach at the end of each step (by up to 6.8 cm), so both feet left the ground for a quarter of the cycle. Lowering the body to keep it in reach made it dip 15–22 cm. Re-timing the legs removed the cause, and a foot out of reach rolls onto its toes or heel before the body is lowered.
+  - **The swinging foot scraped along the ground** at up to 8 m/s, which looks like sliding. The game's swing passes 1–5 cm over the ground, and a lock still fading out was counted as a foot that must reach the ground, which lowered the body. Only planted feet count now, and swinging feet are lifted 5 cm.
 - Two walkers stuck in place: one stood touching a ledge (fixed by ignoring geometry within 15 cm of the start), the other is boxed in.
 - Path planning took minutes: rays tested against every triangle within 18 m. Each cast now uses a thin box around its line, so the export spends about 15 s on it.
 - The editor capture camera inside a wall: place it by ray casts that see the loop.
 - `unreal.KismetMaterialLibrary` doesn't exist in Python; it is `unreal.MaterialLibrary`.
+- Routes:
+  - **Road tiles failed as floors.** They have skirts reaching a metre into the terrain, and the rutted snow spans 40–70 cm of height inside one 0.5 m column. A floor rule that capped thickness rejected them; the step limit between neighbours does that job.
+  - **The roads looked hatched.** The terrain pokes through the road surface along its triangle diagonals, so the top surface alone misses road columns. Roads are now the footprint of the road triangles.
+  - **The city fell into hundreds of islands.** Forbidding floors next to anything solid cut every narrow gap. Tight floors are now usable at a high cost.
+  - **Routes came back across open snow.** The way back paid 6 times as much on the way out's cells, so it left the road. Up and down one street, on two lanes, is what Frostpunk's spokes and rings suggest anyway.
+  - **Walkers started 1–3 m off their spot.** The route began and ended at the person, so the start sat on a U-turn that smoothing pulled away. The person now starts mid-street, and the start is pinned.
+  - **A boxed-in person walked out through a crate** (`mesh_637`), so the step to the network must cross floors.
+  - **That check failed on its first metre:** the person's own column can be empty. Skip its own 0.3 m.
+  - **Smoothing cut building corners** (2–6 points on 3 routes). The line is checked after smoothing and pulled back to the centre line.
+  - **The far end behind wandered off the roads**, because only the way ahead preferred them.
+  - **`walker_check` took 5 minutes:** one box around a whole 120 m route held most of the city's triangles. It now tests short stretches.
+  - **Walkers zigzagged** (the user saw it in the viewport). The line had 30–50 cm kinks every metre or two: the grid's staircase left after a moving average, the lane offset switching between 0, ⅓, ⅔ and all of it from one point to the next, and corner fixes snapping points to the centre line. Straightened runs, rounded corners and a lane share smoothed along the way fixed it (strong turn flips: 3–19 per route before, 0–1 now).
+  - **Walkers spun round on the spot** at a street end next to their start. The lane offset faded to 0 around the start, so the half-circle turn there had no radius, and the walker could turn either way. Pinning the start already puts the walker on its spot, so the fade went. The turns keep at least 0.25 m, and street ends make room for them.
+  - **The loop's yaw closed with a guessed sign.** Unwrapping round the closed loop gives the exact total turn.
 
 ## Not done yet
 
-- **Routes through the city.** The lanes are short and straight. Next: a walkable map of the whole city from the rip, a grid of about 0.5 m cells with the same ground and body-height tests as the lanes. Then longer routes on it (closed circuits or round trips of tens of metres along the streets, with gentle curves), preferring roads if the road material can be told apart. The shader takes any closed path, so only `ue/walkers.py` changes.
-- **Walkers avoiding each other:** `mesh_326` and `mesh_636` pass through each other (`walker_check` lists such pairs).
+- **Circuits:** everyone walks one street up and down. A loop round a block would need the way back to take another street at a fair price. The first try (6 times the cost on the way out's cells) sent people back across the open snow.
+- **Junctions:** nobody walks through anyone now (two lanes), but walkers don't wait for each other where routes cross; `walker_check` lists pairs that come within 0.6 m.
+- **`mesh_652`, `mesh_1519` and `mesh_637`** stand where the map has no way out. A finer grid near them, or letting a person step over a low crate, could free them.
 - **Crutch walkers** (`mesh_642`, `mesh_649`) need their own cycle.
 - **People at work:** every upright person on Frostpunk was walking. Someone standing still would walk too.
 - **Blender** has no walking.
@@ -198,12 +261,13 @@ The loop (lane, half circle, lane, half circle) is resampled to 128 points with 
 | path | what |
 |---|---|
 | `gtb/characters.py` | Skin data (`skin_arrays`, `backfill`), the rig, the bone solve (`Person`), the walk cycle (`fit_walk`, `Walk`) |
-| `ue/walkers.py` | Finding the walkers, the baked cycle, the loops, the textures and plan entries; `replay` mirrors the shader |
-| `ue/walker_check.py` | The checks above |
+| `ue/walkers.py` | Finding the walkers, the baked cycle, their routes (or lanes), the textures and plan entries; `replay` mirrors the shader |
+| `ue/routes.py` | The walkable map (`WalkMap`), the roads (`road_meshes`), the routes (`plan_route`, `route_points`) |
+| `ue/walker_check.py` | The checks above, and the routes map |
 | `ue/editor/gtb_hlsl.py` | `WALKER_WPO`, `WALKER_ROT` |
 | `ue/editor/gtb_materials.py` | `build_walker` (`M_GTB_Walker`: the surface master plus the walker parts) |
 | `ue/editor/gtb_ue.py` | Imports the textures, sets `MI_Look_Walker` and each walker's custom primitive data and bounds |
 | `ue/live.py` | `walkers`: the same, into an open editor |
-| `ue/export.py` | Walker meshes get the bone UVs and `MI_Walk_*`; the plan's `walkers` section |
+| `ue/export.py` | Walker meshes get the bone UVs and `MI_Walk_*`; the solid surfaces with their materials go to the walkable map; the plan's `walkers` section |
 | `profiles/frostpunk.json` | The `characters` rig |
-| `tests/selftest.py` | A synthetic person: bones solved, planted foot, closed loop |
+| `tests/selftest.py` | A synthetic person (bones solved, planted foot, closed loop) and a synthetic street (the route keeps to the road, round a building) |

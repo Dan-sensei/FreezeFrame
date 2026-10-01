@@ -542,6 +542,7 @@ def export(capture: Path, solo=False):
     materials, used_textures, actors = {}, {}, []
     surfaces_for_ray = []
     solids, cloth_actors = [], []       # cloth: how far each banner may move (see cloth_room)
+    ground = []                         # solids with their material: the walkers' map (ue/routes.py)
     sprite_frames_by_atlas = {}
     counts = {"surface": 0, "cloth": 0, "walker": 0, "effect": 0, "sprite": 0, "snowdrift": 0}
 
@@ -647,6 +648,7 @@ def export(capture: Path, solo=False):
                 counts["snowdrift"] += 1
                 surfaces_for_ray.append((pos_b, tris))
                 solids.append((pos_b, tris))
+                ground.append((pos_b, tris, materials[key]["name"], True))
             else:
                 slots = assign_slots(m.get("textures", {}), textures, profile)
                 has_uv = "uv0" in data
@@ -687,8 +689,10 @@ def export(capture: Path, solo=False):
                         counts["walker"] += 1
                     elif flutter:     # banners come as front/back twins that move together
                         cloth_actors.append((actor, pos_b, tris))
+                        ground.append((pos_b, tris, materials[key]["name"], has_uv))
                     else:
                         solids.append((pos_b, tris))
+                        ground.append((pos_b, tris, materials[key]["name"], has_uv))
                 else:
                     actor.update(folder="Effects (hidden)", hidden=True)
                     counts["effect"] += 1
@@ -710,7 +714,7 @@ def export(capture: Path, solo=False):
     walkers_info = None
     if walker_actors:
         per_actor, walkers_info = walker_mod.plan(capture, manifest, [walking[n] for n in walker_actors], walk, soup,
-                                                  walker_actors)
+                                                  walker_actors, ground)
         for n, v in per_actor.items():
             walker_actors[n]["walker"] = v["walker"]           # custom primitive data 0-7
             walker_actors[n]["walker_extent_cm"] = v["extent_cm"]   # mesh bounds extension

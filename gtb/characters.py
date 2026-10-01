@@ -435,17 +435,20 @@ class Walk:
                     e += (self.a[k] * GAIT[curve](grid + off) + self.b[k] - _flex(q, bone, ax)) ** 2
         return float(grid[np.argmin(e)])
 
-    def pose(self, phi):
+    def pose(self, phi, legs=None):
+        """The pose at cycle phase phi. legs: each leg's own phase in the cycle (default phi;
+        ue/walkers.py re-times them so a planted foot moves back evenly)."""
         K = (self.body.shape[0] - 1) // 2
         v = (basis(phi, K) @ self.body)[0]
         p = {b: v[i * 3:i * 3 + 3].copy() for i, b in enumerate(self.bones)}
         ax = self.rig.lateral
         mean = {b: self.body[0, i * 3:i * 3 + 3] for i, b in enumerate(self.bones)}
-        for leg, off in zip(self.rig.legs, (0.0, 0.5)):
+        for n, (leg, off) in enumerate(zip(self.rig.legs, (0.0, 0.5))):
+            u = phi if legs is None else legs[n]
             for bone, curve, k in zip(leg, ("hip", "knee", "ankle"), range(3)):
                 if bone not in p:
                     continue
-                ang = np.radians(self.a[k] * GAIT[curve](phi + off)[0] + self.b[k])
+                ang = np.radians(self.a[k] * GAIT[curve](u + off)[0] + self.b[k])
                 # Flexion from the template; the leg's twist and sideways swing stay at the
                 # walkers' average: fitted, they slid the planted foot sideways at 80 cm/s.
                 p[bone] = mean[bone] - ax * (mean[bone] @ ax) + ax * ang
